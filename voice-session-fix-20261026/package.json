@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "jsdom": "^26.1.0"
+  },
+  "name": "todaytodo-experience-fix",
+  "version": "1.0.67-qa.20261027",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "build": "pwsh -NoProfile -File ./build.ps1"
+  }
+}

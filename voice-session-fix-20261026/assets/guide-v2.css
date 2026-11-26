@@ -1,0 +1,49 @@
+/* Scoped guide styles. Load after styles.css. No network or image dependency. */
+.guide-layer--v2 { background: #fff9ef; color: #382f2b; }
+#guide-pager.guide-v2 {
+  --gv-ink: #382f2b; --gv-muted: #756259; --gv-line: #eddfd0;
+  --gv-card: #fffefd; --gv-accent: #b3472b; --gv-soft: #ffe6d9; --gv-mint: #def2e9;
+  display: block; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; min-height: 0; padding: max(18px, env(safe-area-inset-top, 0px)) 18px 12px;
+  color: var(--gv-ink); background: #fff9ef; scroll-behavior: auto;
+}
+.gv-page { width: min(100%, 660px); margin: 0 auto; padding-bottom: 4px; }
+.gv-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; font-weight: 700; }
+.gv-brand { letter-spacing: .08em; color: var(--gv-muted); }
+.gv-progress { border: 1px solid var(--gv-line); background: var(--gv-card); padding: 6px 12px; border-radius: 30px; white-space: nowrap; }
+.gv-hero { position: relative; padding: 25px 0 20px; }
+.gv-mascot { float: right; display: grid; place-items: center; width: 68px; height: 68px; margin: 6px 0 12px 12px; border-radius: 25px 29px 22px 30px; background: var(--gv-soft); color: var(--gv-accent); font-size: 34px; transform: rotate(7deg); box-shadow: 5px 6px 0 var(--gv-mint); }
+.gv-eyebrow { margin: 0 0 9px; color: var(--gv-accent); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+.gv-title { margin: 0; font-size: clamp(23px, 6.4vw, 32px); line-height: 1.35; letter-spacing: -.03em; font-weight: 800; text-wrap: balance; }
+.gv-intro { max-width: 440px; margin: 11px 0 0; color: var(--gv-muted); line-height: 1.75; font-size: 14px; }
+.gv-cards { display: grid; gap: 10px; clear: both; }
+.gv-card { border: 1px solid var(--gv-line); border-radius: 20px; background: var(--gv-card); overflow: hidden; box-shadow: 0 3px 0 rgba(105, 74, 48, .035); }
+.gv-card-head { min-height: 72px; padding: 13px 14px; display: flex; align-items: center; gap: 11px; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.gv-card-head::-webkit-details-marker { display: none; }
+.gv-card-icon { flex: 0 0 38px; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 14px; color: var(--gv-accent); background: var(--gv-soft); font-size: 21px; font-weight: 700; }
+.gv-card:nth-child(even) .gv-card-icon { background: var(--gv-mint); color: #28654f; }
+.gv-card-words { flex: 1; min-width: 0; }
+.gv-card-words strong { display: block; font-size: 15px; line-height: 1.5; }
+.gv-card-words > span { display: block; margin-top: 3px; color: var(--gv-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.gv-card-plus { color: var(--gv-accent); font-size: 22px; width: 20px; text-align: center; flex-shrink: 0; }
+.gv-card[open] .gv-card-plus { transform: rotate(45deg); }
+.gv-card[open] .gv-card-head { padding-bottom: 9px; }
+.gv-card-body { padding: 0 17px 17px 63px; margin: 0; font-size: 14px; line-height: 1.85; color: var(--gv-muted); overflow-wrap: anywhere; }
+.gv-footnote { margin: 16px 0 4px; text-align: center; color: var(--gv-muted); font-size: 11px; line-height: 1.7; }
+.guide-layer--v2 .guide__actions { gap: 8px; padding-inline: 18px; flex-wrap: wrap; }
+.guide-layer--v2 .guide__prev { min-height: 44px; border: 1px solid #dfcdb9; border-radius: 14px; padding: 9px 15px; background: #fffefd; color: #755044; cursor: pointer; }
+.guide-layer--v2 .guide__next { min-width: 100px; min-height: 44px; }
+.guide-layer--v2 .guide__skip { color: #755044; min-height: 44px; }
+.guide-layer--v2 .guide__dot.is-active { background: #c65233; }
+.guide-v2 summary:focus-visible, .guide-layer--v2 button:focus-visible { outline: 3px solid #24745a; outline-offset: 3px; }
+#guide-pager.guide-v2:focus-visible { outline: 2px solid #24745a; outline-offset: -3px; }
+html[data-theme="dark"] .guide-layer--v2 { background: #201d23; color: #f5ece5; }
+html[data-theme="dark"] #guide-pager.guide-v2 { --gv-ink: #f5ece5; --gv-muted: #c8b8af; --gv-line: #4c3d3b; --gv-card: #2b252b; --gv-accent: #ffb293; --gv-soft: #49302e; --gv-mint: #283f38; background: #201d23; }
+html[data-theme="dark"] .gv-card:nth-child(even) .gv-card-icon { color: #a0dcc0; }
+html[data-theme="dark"] .guide-layer--v2 .guide__prev { background: #2b252b; color: #f5ece5; border-color: #65504b; }
+html[data-theme="dark"] .guide-layer--v2 .guide__skip { color: #dec8bc; }
+html[data-theme="dark"] .guide-layer--v2 .guide__dot.is-active { background: #ffb293; }
+html[data-theme="dark"] .guide-v2 summary:focus-visible, html[data-theme="dark"] .guide-layer--v2 button:focus-visible { outline-color: #a0dcc0; }
+@media (min-width: 650px) { .gv-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } .gv-card-body { padding-left: 17px; } }
+@media (max-width: 360px) { #guide-pager.guide-v2 { padding-inline: 12px; } .gv-mascot { width: 53px; height: 53px; font-size: 28px; } .gv-card-body { padding-left: 17px; } .guide-layer--v2 .guide__actions { padding-inline: 12px; } }
+@media (prefers-reduced-motion: reduce) { .guide-layer--v2, .guide-layer--v2 * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

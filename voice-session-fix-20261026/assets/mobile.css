@@ -1,0 +1,389 @@
+/* ==========================================================================
+   mobile.css — 手机版（Android 容器）专用的一层覆盖样式
+   在 styles.css 之后加载，不改动网页版共用的那份样式表。
+
+   这一层解决四件事：
+     1. 把页面变成「固定外壳 + 分区滚动」的应用布局：顶部标题与切换不滚走，
+        待办列表单独滚动，输入栏永远贴在屏幕底部（键盘弹出时自动浮在键盘上方）。
+     2. 触控硬化：去掉点按高亮与双击缩放、禁掉橡皮筋与长按菜单、惯性滚动。
+     3. 命中区放大到手指友好的尺寸。
+     4. 深色主题：只覆盖配色变量与少量写死的颜色。
+   ========================================================================== */
+
+/* ---------------------------------------------------------- 1. 应用外壳 */
+
+html, body {
+  height: 100%;
+  overflow: hidden;              /* 整页不滚，滚动交给内部的列表容器 */
+  overscroll-behavior: none;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+.app { height: 100%; min-height: 0; }
+
+/* 登录页：键盘弹出时能整页滚动，不会被顶掉 */
+#view-auth {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 20px;
+}
+
+#view-auth .auth { margin: auto; padding: 26px 0 calc(26px + var(--safe-bottom)); }
+
+/* 主界面：竖向三分（标题 / 切换条 / 内容），内容区自己滚 */
+#view-todo {
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  padding: 0 16px;
+  overflow: hidden;
+}
+
+.topbar {
+  position: static;              /* 外壳不滚，不需要 sticky */
+  flex: 0 0 auto;
+  margin: 0;
+  /* 顶部多留一截：状态栏下沿有一段「下了拉通知栏」的触摸死区，
+     头像和账号按钮贴太近会点不动（真机测出来约 40dp） */
+  padding: 38px 0 10px;
+  background: none;
+}
+
+.main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.segbar { flex: 0 0 auto; margin-bottom: 10px; }
+
+.panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 可滚动区域 */
+.listarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+.listarea::-webkit-scrollbar { width: 0; height: 0; }
+
+/* 底部输入区 */
+.composer {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 8px 0 calc(10px + var(--safe-bottom));
+  background: var(--bg);
+}
+
+/* 列表滚到底部时，让内容淡淡地融进输入区，而不是硬切一刀 */
+.composer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 16px;
+  background: linear-gradient(180deg, rgba(244, 246, 251, 0), var(--bg));
+  pointer-events: none;
+}
+
+#panel-archive .arcbar { flex: 0 0 auto; margin: 2px 2px 10px; }
+
+/* 已办里的空状态别贴着顶 */
+.arc-list #archive-empty, .listarea .empty { margin-top: 40px; }
+
+/* ---------------------------------------------------------- 2. 触控硬化 */
+
+button, .todo, .arc, .segbar__btn, .tabs__btn, .arcbar__all, .timechip, .timepop__preset {
+  touch-action: manipulation;    /* 去掉双击缩放与 300ms 延迟 */
+}
+
+button, .segbar__btn, .tabs__btn, .arcbar__all, .timechip, .summary__clear,
+.user__btn, .user__menu-item, .timepop__preset, .arc__box, .todo__check {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 任务正文仍然允许长按选中复制 */
+.todo__text, .arc__text { -webkit-user-select: text; user-select: text; }
+
+svg { -webkit-user-drag: none; }
+
+/* 触屏上没有 hover，把这些「悬停才出现」的反馈交给 :active，避免点完一直亮着 */
+@media (hover: none) {
+  .timechip:hover { border-color: transparent; }
+  .timefield--add .timechip:hover { border-color: var(--line); }
+  .user__btn:hover { border-color: var(--line); box-shadow: none; }
+  .user__menu-item:hover { background: transparent; color: var(--text); }
+  .timepop__preset:hover { color: var(--text-2); border-color: var(--line); background: var(--surface); }
+  .timepop__close:hover { color: var(--muted); background: transparent; }
+  .arcbar__all:hover { background: transparent; }
+  .summary__clear:hover { color: var(--muted); background: transparent; }
+  .btn--primary:hover { background: var(--primary); }
+  .btn--ghost:hover { background: #f1f3f9; }
+  .btn--danger:hover { background: var(--danger); }
+  .btn--danger-ghost:hover { background: var(--danger-soft); }
+  .reminder__close:hover { color: #b9c0d0; background: transparent; }
+  .confirm__extra:hover { background: var(--danger-soft); }
+}
+
+/* ---------------------------------------------------- 3. 手指友好的命中区 */
+
+.addbar__input { height: 52px; }
+
+.addbar__btn { width: 52px; height: 52px; }
+
+.addbar__mic { width: 48px; height: 52px; }
+
+.timechip { padding: 8px 13px; font-size: 13px; }
+
+.timefield--add .timechip { padding: 9px 14px; font-size: 13px; }
+
+.timefield__clear { width: 30px; height: 30px; }
+
+.todo { padding: 13px 8px 12px 14px; }
+
+.todo__check { width: 26px; height: 26px; }
+
+.todo__delete { width: 42px; height: 42px; margin: -8px -4px 0 0; }
+
+.summary__clear { padding: 8px 10px; font-size: 13px; }
+
+.segbar__btn { height: 44px; }
+
+.btn { height: 48px; }
+.btn--sm { height: 40px; padding: 0 14px; }
+
+.arc { padding: 13px 8px 13px 12px; }
+.arc__box { width: 24px; height: 24px; border-radius: 8px; }
+.arc__delete { width: 42px; height: 42px; margin: -6px -4px 0 0; }
+.arcbar__all { padding: 7px 10px 7px 7px; }
+
+.timepop__close { width: 36px; height: 36px; }
+.timepop__preset { padding: 9px 14px; font-size: 13px; }
+.timepop__select { height: 46px; font-size: 16px; }
+.timepop__actions .btn { height: 46px; }
+
+.reminder__close { width: 34px; height: 34px; }
+.reminder__badge { font-size: 13px; }
+.reminder__text { font-size: 15.5px; }
+
+.confirm__actions .btn { height: 48px; }
+.confirm__extra { height: 46px; }
+
+/* 底部抽屉在小屏 + 键盘弹出时也别撑爆 */
+@media (max-width: 560px) {
+  .timepop { max-height: 68vh; overflow-y: auto; overscroll-behavior: contain; }
+}
+
+/* ------------------------------------------------------- 4. 后台提醒状态条 */
+
+.nativebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.nativebar[hidden] { display: none; }
+
+.nativebar__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #35c46a;
+}
+
+.nativebar[data-state="warn"] .nativebar__dot { background: var(--warn); }
+.nativebar[data-state="off"] .nativebar__dot { background: var(--danger); }
+.nativebar[data-state="fail"] .nativebar__dot { background: var(--danger); }
+.nativebar[data-state="done"] .nativebar__dot { background: var(--primary); }
+
+.nativebar__text { flex: 1 1 auto; min-width: 0; }
+
+.nativebar__acts {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 点得着才算按钮：这一行上唯一需要手指精准命中的就是这个 */
+.nativebar__act {
+  flex: 0 0 auto;
+  min-width: 62px;
+  height: 38px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 11px;
+  background: #f1f3f9;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  touch-action: manipulation;
+}
+
+.nativebar__act[data-tone="primary"] {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.nativebar__act:active { transform: scale(0.96); }
+
+/* 收起这一行。除了「刚刚提醒过的通知」那种一次性的，其余都能收 */
+.nativebar__close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.nativebar__close:active { background: rgba(23, 32, 60, 0.07); }
+
+/* ------------------------------------------------------------ 5. 深色主题 */
+
+html[data-theme="dark"] {
+  --bg: #12141a;
+  --surface: #1c1f28;
+  --text: #eef1f7;
+  --text-2: #a9b1c3;
+  --muted: #7d879b;
+  --line: #2a2f3b;
+  --primary: #6c86ff;
+  --primary-strong: #8299ff;
+  --primary-soft: #232a44;
+  --danger: #ff6369;
+  --danger-soft: #341f21;
+  --warn: #e8a34a;
+  --warn-soft: #33270f;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.34);
+}
+
+html[data-theme="dark"] .composer::before {
+  background: linear-gradient(180deg, rgba(18, 20, 26, 0), var(--bg));
+}
+
+html[data-theme="dark"] .tabs,
+html[data-theme="dark"] .segbar { background: #22262f; }
+
+html[data-theme="dark"] .tabs__btn.is-active,
+html[data-theme="dark"] .segbar__btn.is-active { background: var(--surface); }
+
+html[data-theme="dark"] .field__input,
+html[data-theme="dark"] .timepop__select,
+html[data-theme="dark"] .timepop__preset { background: #191c24; }
+
+html[data-theme="dark"] .field__input:focus,
+html[data-theme="dark"] .timepop__select:focus { background: #1f2430; }
+
+html[data-theme="dark"] .field__input::placeholder,
+html[data-theme="dark"] .addbar__input::placeholder { color: #6b7488; }
+
+html[data-theme="dark"] .btn--ghost { background: #22262f; color: var(--text-2); }
+html[data-theme="dark"] .nativebar__act { background: #22262f; color: var(--text-2); }
+html[data-theme="dark"] .nativebar__act[data-tone="primary"] {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+html[data-theme="dark"] .nativebar__close:active { background: rgba(255, 255, 255, 0.09); }
+
+html[data-theme="dark"] .timefield[data-tone="normal"] .timechip { color: #a9b7ff; background: #232a44; }
+html[data-theme="dark"] .timefield[data-tone="warn"] .timechip { color: #e8a34a; background: #33270f; }
+html[data-theme="dark"] .timefield[data-tone="urgent"] .timechip { color: #ff8589; background: #3a2124; }
+html[data-theme="dark"] .timefield[data-tone="done"] .timechip { background: #22262f; }
+html[data-theme="dark"] .timefield--add[data-tone="idle"] .timechip { border-color: #333a48; }
+html[data-theme="dark"] .timefield--add .timechip { background: var(--surface); }
+
+html[data-theme="dark"] .todo__check,
+html[data-theme="dark"] .arc__box { border-color: #3a4150; }
+
+html[data-theme="dark"] .todo__delete,
+html[data-theme="dark"] .arc__delete,
+html[data-theme="dark"] .timefield__clear,
+html[data-theme="dark"] .reminder__close { color: #4d566a; }
+
+html[data-theme="dark"] .segbar__badge { background: #2a2f3b; }
+
+html[data-theme="dark"] .arc.is-selected { background: #1e2540; border-color: #3a4a90; }
+
+html[data-theme="dark"] .empty { color: #38404f; }
+html[data-theme="dark"] .arc__meta > span::before { background: #38404f; }
+html[data-theme="dark"] .arc__text { text-decoration-color: rgba(125, 135, 155, 0.7); }
+html[data-theme="dark"] .todo.is-done .todo__text { text-decoration-color: rgba(125, 135, 155, 0.75); }
+
+html[data-theme="dark"] .todo.is-overdue {
+  border-color: #4a2a2c;
+  box-shadow: inset 3px 0 0 #8a3c40, 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .confirm-layer { background: rgba(0, 0, 0, 0.55); }
+html[data-theme="dark"] .timepop-layer { background: rgba(0, 0, 0, 0.5); }
+
+html[data-theme="dark"] .confirm { background: var(--surface); }
+html[data-theme="dark"] .confirm__extra { border-color: #4a2a2c; background: var(--danger-soft); }
+
+html[data-theme="dark"] .reminder { background: var(--surface); }
+html[data-theme="dark"] .reminder__bar { background: #2a2f3b; }
+
+html[data-theme="dark"] .toast { background: rgba(238, 241, 247, 0.94); color: #12141a; }
+
+html[data-theme="dark"] .user__menu { background: var(--surface); }
+
+html[data-theme="dark"] .auth__logo {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------------------------------------------------------- 6. 小屏微调 */
+
+@media (max-width: 380px) {
+  #view-todo { padding-left: 13px; padding-right: 13px; }
+  .topbar { padding-left: 0; padding-right: 0; }
+  .topbar__title { font-size: 20px; }
+  .segbar__btn { font-size: 14px; }
+  .arcbar__acts .btn { padding: 0 11px; }
+}
+
+/* 马卡龙：列表融进输入区的那层渐变也要换成奶油色 */
+html[data-theme="macaron"] .composer::before {
+  background: linear-gradient(180deg, rgba(253, 246, 242, 0), var(--bg));
+}
+
+html[data-theme="macaron"] .segbar { background: #f9ece9; }
+
+html[data-theme="macaron"] .addbar__input,
+html[data-theme="macaron"] .addbar__mic {
+  border-color: #f2e2de;
+  background: #fffdfb;
+}

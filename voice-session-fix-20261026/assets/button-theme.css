@@ -1,0 +1,219 @@
+/* 今日待办 · 奶油糖果按钮。最后加载；只改变控件外观，不接管事件或状态。 */
+:root {
+  --button-fill-start: #bd431b;
+  --button-fill-end: #9d3617;
+  --button-on-fill: #ffffff;
+  --button-accent-ink: #9d3617;
+  --button-danger-fill: #b63443;
+  --button-danger-ink: #a22f3c;
+  --button-on-danger: #ffffff;
+  --button-soft: var(--primary-soft);
+  --button-focus: #9d3617;
+  --button-shadow: 0 3px 0 rgba(90, 43, 24, .12), 0 6px 14px rgba(128, 57, 31, .12);
+}
+html[data-theme="dark"] {
+  --button-fill-start: #aabaff;
+  --button-fill-end: #8fa5ff;
+  --button-on-fill: #18213d;
+  --button-accent-ink: #b9c5ff;
+  --button-danger-fill: #ff9aa0;
+  --button-danger-ink: #ffb0b5;
+  --button-on-danger: #3b1520;
+  --button-focus: #c2ceff;
+  --button-shadow: 0 3px 0 rgba(0, 0, 0, .25), 0 6px 16px rgba(0, 0, 0, .16);
+}
+html[data-theme="macaron"] {
+  --button-fill-start: #f6b9c5;
+  --button-fill-end: #ee9a9a;
+  --button-on-fill: #5a293d;
+  --button-accent-ink: #8a3a59;
+  --button-danger-fill: #aa3b55;
+  --button-danger-ink: #94324d;
+  --button-on-danger: #ffffff;
+  --button-focus: #8a3a59;
+  --button-shadow: 0 3px 0 rgba(145, 79, 94, .12), 0 6px 14px rgba(145, 79, 94, .10);
+}
+
+/* 不统一 padding / flex / width，避免挤坏语音四键、三栏导航与图标。 */
+:root body button {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 16px;
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+:root body :is(.btn, .tabs__btn, .segbar__btn, .themepick__btn,
+  .timepop__preset, .timeslot__btn, .txtav__font, .scan__mode,
+  .mdl__btn, .mdlpreset__btn, .mdlchip, .caprow__btn, .cmp__task,
+  .consent__btn, .asstacts__btn, .nativebar__act, .setrow__btn,
+  .guide__skip, .guide__prev, .guide__next) {
+  border-radius: 16px;
+  font-weight: 650;
+  min-height: 44px;
+}
+
+/* 次按钮：柔和表面，文字使用现有主题正文变量。 */
+:root body :is(.btn--ghost, .user__btn, .user__menu-item, .timepop__preset,
+  .timeslot__btn, .txtav__font, .mdl__btn, .mdlpreset__btn, .mdlchip,
+  .caprow__btn, .cmp__task, .consent__btn, .asstacts__btn, .setrow__btn,
+  .nativebar__act, .scan__mode, .vox__alt, .vox__close, .vox__mode,
+  .asst__chip, .asst__model, .memo__rwchip, .guide__skip, .guide__prev,
+  .summary__clear, .arcbar__all, .sort-option, .timepick__opt, .attachsrc__cancel) {
+  color: var(--text);
+  background: linear-gradient(155deg, var(--surface), var(--bg));
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 2px 4px rgba(24, 32, 55, .04);
+}
+:root body :is(.btn--primary, .addbar__btn, .memobar__new, .asst__send,
+  .vox__stop, .vox__addtodo) {
+  background: linear-gradient(145deg, var(--button-fill-start), var(--button-fill-end));
+  color: var(--button-on-fill);
+  border: 1px solid transparent;
+  box-shadow: var(--button-shadow), inset 0 1px 0 rgba(255, 255, 255, .20);
+}
+:root body .vox__stoplabel { color: var(--button-on-fill); }
+:root body .vox__stopicon { background-color: var(--button-on-fill); }
+:root body .vox__stop.is-send .vox__stopicon {
+  background-color: transparent;
+  border-left-color: var(--button-on-fill);
+}
+:root body .vox__stop[aria-busy="true"] .vox__spin { border-top-color: var(--button-on-fill); }
+
+/* 选择态同时有边框、字体和表面变化，不只依赖颜色。 */
+:root body :is(.tabs__btn, .segbar__btn) { color: var(--text-2); border: 1px solid transparent; }
+:root body :is(.tabs__btn, .segbar__btn, .themepick__btn, .timeslot__btn,
+  .txtav__font, .scan__mode, .mdlpreset__btn, .mdlchip, .caprow__btn,
+  .cmp__task, .timepick__opt, .sort-option, .consent__btn, .ring-item):is(.is-active, [aria-checked="true"], [aria-selected="true"]),
+:root body .vox__mode:is(.is-on, [aria-pressed="true"]),
+:root body .nativebar__act[data-tone="primary"] {
+  color: var(--button-accent-ink);
+  background: var(--button-soft);
+  border-color: var(--button-accent-ink);
+  box-shadow: inset 0 0 0 1px var(--button-accent-ink), 0 2px 4px rgba(24, 32, 55, .05);
+  font-weight: 700;
+}
+:root body :is(.auth__link, .cmp__link, .vox__more, .memo__ai-again,
+  .memo__ai-hide, .arc__restore) { color: var(--button-accent-ink); }
+:root body .themepick__btn[data-mode="macaron"] { color: #8a3a59; }
+:root body .segbar__btn.is-active .segbar__badge { color: var(--button-accent-ink); }
+
+/* 危险动作保留红色语义，停止录音仍沿用主操作语义。 */
+:root body :is(.btn--danger, .audiobar__stop) {
+  background: var(--button-danger-fill);
+  color: var(--button-on-danger);
+  box-shadow: 0 3px 0 rgba(93, 22, 36, .12);
+}
+:root body :is(.btn--danger-ghost, .auth__link--danger, .mdl__btn--danger,
+  .asstacts__btn--danger, .confirm__extra, .todo__delete, .arc__delete) {
+  color: var(--button-danger-ink);
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
+}
+
+/* 关闭/小图标也有清楚的触区；不改变头像已有 background-image。 */
+:root body :is(.timefield__clear, .timepop__close, .sheet__close,
+  .reminder__close, .nativebar__close, .attachpreview__close, .memo__tagchip-x,
+  .llmcfg__eye, .todo__delete, .arc__delete, .user__face) {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 15px;
+  color: var(--text-2);
+}
+:root body :is(.todo__delete, .arc__delete) { color: var(--button-danger-ink); }
+:root body :is(.addbar__mic, .memobar__review, .memobar__ask, .asst__mic) {
+  border-radius: 16px;
+  color: var(--button-accent-ink);
+  background: var(--button-soft);
+  border-color: var(--line);
+}
+:root body .timechip { min-height: 44px; color: var(--text-2); }
+:root body .timefield[data-tone="idle"] .timechip { color: var(--text-2); }
+:root body .timefield[data-tone="done"] .timechip { color: var(--text-2); background: var(--bg); }
+:root body .timefield:is([data-tone="normal"], [data-tone="info"]) .timechip { color: var(--button-accent-ink); background: var(--button-soft); }
+:root body .timefield[data-tone="overdue"] .timechip { color: var(--button-on-danger); background: var(--button-danger-fill); }
+:root body .timepickfield__row { min-height: 44px; border-radius: 13px; }
+
+/* 紧凑颜色/笔宽保留原图案，透明边界属于按钮本身，不用重叠伪元素扩触区。 */
+:root body .draw__colors { flex-wrap: wrap; gap: 4px; max-width: 100%; }
+:root body :is(.draw__swatch, .txtav__swatch) {
+  width: 44px; height: 44px; padding: 7px;
+  background-clip: content-box;
+  border-radius: 50%;
+}
+:root body .draw__swatch.is-active { transform: none; box-shadow: inset 0 0 0 2px white; }
+:root body .draw__size {
+  width: 44px; height: 44px; background: transparent;
+  display: grid; place-items: center; border-radius: 14px;
+}
+:root body .draw__size::after { content: ""; width: 6px; height: 6px; background: white; border-radius: 50%; }
+:root body .draw__size[data-size="6"]::after { width: 12px; height: 12px; }
+:root body .draw__size[data-size="12"]::after { width: 20px; height: 20px; }
+/* 保留原开关的28px视觉轨道，在上下补8px透明触区。 */
+:root body .switch { height: 44px; padding: 3px; border-top: 8px solid transparent; border-bottom: 8px solid transparent; background-clip: padding-box; }
+:root body .guide__actions { gap: 8px; }
+:root body .guide__actions > button { flex: 1 1 0; min-width: 0; padding-inline: 10px; }
+
+/* 头像图/绘画取色仍是原资源，圆形也维持不变。 */
+:root body :is(.user__face, .avatar-cell, .txtav__swatch, .draw__swatch) { border-radius: 50%; }
+@media (hover: none), (pointer: coarse) {
+  :root body :is(.sheet__close, .timepop__close, .reminder__close):hover,
+  :root[data-theme] body :is(.sheet__close, .timepop__close, .reminder__close):hover {
+    color: var(--text-2); background: transparent;
+  }
+  :root body :is(.auth__link, .cmp__link, .vox__more):hover { color: var(--button-accent-ink); }
+  :root body :is(.user__face, .avatar-cell):hover,
+  :root[data-theme] body :is(.user__face, .avatar-cell):hover { border-color: var(--line); box-shadow: none; }
+}
+
+/* 原CSS的hover在触屏会粘住：先用高优先级变量外观固定，再仅在精细指针启用反馈。 */
+:root body button:not(:disabled):not([aria-disabled="true"]):active {
+  transform: translateY(1px) scale(.985);
+  filter: brightness(.96);
+}
+@media (hover: hover) and (pointer: fine) {
+  :root body button:not(:disabled):not([aria-disabled="true"]):hover {
+    filter: brightness(1.045);
+    transform: translateY(-1px);
+  }
+}
+:root body button:focus-visible {
+  outline: 3px solid var(--button-focus);
+  outline-offset: 3px;
+}
+:root body button:is(:disabled, [aria-disabled="true"]) {
+  opacity: .55;
+  filter: grayscale(.35);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root body button, :root body button *, :root body button::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  :root body button:hover, :root body button:active { transform: none !important; }
+}
+
+/* Feedback and confirmations must remain above the note/settings sheets (z-index:120). */
+.confirm-layer { z-index: 230; }
+.toast { z-index: 260; }
+:root body #memo-rw-adopt {
+  min-width: 128px;
+  padding: 10px 16px;
+  color: var(--button-on-fill);
+  background: linear-gradient(145deg, var(--button-fill-start), var(--button-fill-end));
+  border: 1px solid var(--button-fill-end);
+}
+/* Keep the final action away from the Android gesture edge after scrolling a long draft. */
+.memo__rwcard { padding-bottom: 28px; }
+/* The sheet owns scrolling; long drafts must not compress the form's hit boxes. */
+.sheet--memo > .memofrm { flex: 0 0 auto; min-height: auto; }
+.sheet--memo > .memofrm > * { flex-shrink: 0; }
+#memo-digit-fix p, #memo-digit-fix button { overflow-wrap: anywhere; white-space: normal; }
+.time-suggestions { margin: 12px 0; padding: 14px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.time-suggestions p { margin: 0 0 10px; line-height: 1.6; }
+.time-suggestions .memo__tools { margin-top: 8px; }
+.time-suggestions button { text-align: left; white-space: normal; overflow-wrap: anywhere; max-width: 100%; }

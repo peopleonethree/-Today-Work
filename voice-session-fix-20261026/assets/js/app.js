@@ -5701,6 +5701,30 @@
     return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
   }
 
+  function parseScheduledTodo(text, now) {
+    var input = text.trim();
+    var match = /^在[ \t\u3000]*([0-9０-９]{4})[ \t\u3000]*时/.exec(input);
+    if (!match) return null;
+
+    var title = input.slice(match[0].length).trim().replace(/^[，,、：:]\s*/, '');
+    if (!title || /^[\p{P}\s]+$/u.test(title)) return null;
+
+    var digits = match[1].normalize('NFKC');
+    var hour = Number(digits.slice(0, 2));
+    var minute = Number(digits.slice(2));
+    if (hour > 23 || minute > 59) return null;
+
+    var today = new Date(now);
+    var reminder = dayStart(today, 0);
+    reminder.setHours(hour, minute, 0, 0);
+    if (+reminder <= now || reminder.getHours() !== hour || reminder.getMinutes() !== minute) {
+      reminder = dayStart(today, 1);
+      reminder.setHours(hour, minute, 0, 0);
+    }
+    if (reminder.getHours() !== hour || reminder.getMinutes() !== minute) return null;
+    return { text: title, dueAt: +reminder };
+  }
+
   var CLOCK_DIGIT_GROUPS = ['零〇洞动動０0','一幺腰么１1','二两兩２2','三３3','四４4',
     '五５5','六６6','七拐７7','八８8','九勾沟溝钩鉤９9'];
   var CLOCK_DIGIT_CHARS = CLOCK_DIGIT_GROUPS.join('');
@@ -9805,7 +9829,10 @@
 
     el.formAdd.addEventListener('submit', function (event) {
       event.preventDefault();
-      var added = addTodo(el.newTodo.value);
+      var scheduled = parseScheduledTodo(el.newTodo.value, Date.now());
+      var added = scheduled
+        ? addTodo(scheduled.text, readAddTime() === null ? { dueAt: scheduled.dueAt } : undefined)
+        : addTodo(el.newTodo.value);
       if (added) {
         el.newTodo.value = '';
         el.newTodo.focus();

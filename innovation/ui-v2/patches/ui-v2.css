@@ -1,0 +1,729 @@
+
+/* ==========================================================================
+   UI v2 · 视觉收敛层（2026-11-26 追加在 styles.css 末尾）
+
+   为什么要单独成段、而不是改上面的规则：
+   1. 页面的加载顺序是 styles.css → button-theme.css → guide-v2.css → message-workbench.css。
+      button-theme.css 用 :root body … 把所有按钮强制成 44px 高、16px 圆角、砖红渐变，
+      还把「选中态」写成了 描边 + 内描边 的双圈。它的规则在本文件之后加载，
+      同等特异性下永远赢，所以这里凡是要覆盖它的地方一律写成 html:root body …
+      （比 :root body … 多一个元素，特异性稳定高一级）。
+   2. 原有 4800 行一行未动，回退时删掉本段即可。
+   3. 本段里的 :is(…) 只是写法。产出时 build.mjs 会把它逐参数展开成普通选择器
+      （Chromium 对「右端是 :is()」的规则不做类名索引，每个元素都要逐条去试，实测让样式重算慢一倍）。
+      所以写 :is() 时各参数要保持同特异性，展开后层叠结果才不变。
+
+   设计约定
+   - 色彩：一个主题只有一套色相。浅色=朱橙，深色=同一支朱橙提亮，马卡龙=糖粉。
+     按钮不再另起一套砖红/蓝紫。
+   - 文字：四级。标题 22/17、正文 15.5、次要 13.5、辅助 12.5；辅助文字对比度全部 ≥ 4.5。
+   - 圆角：卡片 14、控件 12、小标签 10。
+   - 状态：默认 / 悬停（仅精确指针）/ 按下 / 禁用 / 键盘焦点，五种都有明确外观。
+   ========================================================================== */
+
+/* --------------------------------------------------------------- 0. 设计令牌 */
+
+:root {
+  --text-2: #555f73;
+  --muted: #667085;          /* 原 #98a0b3 在页面底色上只有 2.42:1，不达标 */
+  --text-3: #8b93a6;         /* 只给图标和分隔用，不用于文字 */
+  --line: #e6e9f1;
+  --line-strong: #d3d9e5;
+  --brand-fill: #c8430e;     /* 主按钮填充：白字 4.92:1 */
+  --brand-fill-hover: #b83a0a;
+  --brand-ink: #c2410c;      /* 选中态、链接、强调文字：软底 4.57:1 */
+  --seg-track: #e9ecf3;
+  --seg-on: #ffffff;
+  --shadow-card: 0 1px 2px rgba(23, 32, 60, 0.05), 0 8px 24px -14px rgba(23, 32, 60, 0.12);
+  --shadow-1: 0 1px 2px rgba(23, 32, 60, 0.06);
+  --shadow-2: 0 1px 2px rgba(23, 32, 60, 0.08), 0 3px 8px -2px rgba(23, 32, 60, 0.10);
+  --shadow-float: 0 14px 36px -10px rgba(20, 26, 44, 0.22), 0 2px 6px rgba(20, 26, 44, 0.08);
+  --radius-card: 14px;
+  --radius-ctl: 12px;
+  --fs-12: 12.5px;
+  --fs-13: 13.5px;
+  --fs-14: 14.5px;
+  --fs-15: 15.5px;
+  --fs-17: 17px;
+  --fs-22: 22px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[data-theme="dark"] {
+  --muted: #8b93a6;          /* 卡片底上 5.35:1 */
+  --text-3: #6f7a90;
+  --line-strong: #3b4252;
+  --brand-fill: #ff7a45;     /* 深色下主色提亮，配深墨字 7.15:1 */
+  --brand-fill-hover: #ff8f5e;
+  --brand-ink: #ffb59c;
+  --seg-track: #0e1015;
+  --seg-on: #2c313e;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.40), 0 10px 28px -16px rgba(0, 0, 0, 0.50);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.40), 0 3px 8px -2px rgba(0, 0, 0, 0.40);
+  --shadow-float: 0 16px 40px -10px rgba(0, 0, 0, 0.62), 0 2px 6px rgba(0, 0, 0, 0.40);
+}
+
+html[data-theme="macaron"] {
+  --text-2: #675656;
+  --muted: #7f6e6e;
+  --text-3: #b09f9f;
+  --line-strong: #e6d3ce;
+  --brand-fill: #ee9a9a;
+  --brand-fill-hover: #e58b8b;
+  --brand-ink: #a8465f;
+  --seg-track: #f6e3df;
+  --seg-on: #fffdfb;
+  --shadow-card: 0 1px 2px rgba(180, 140, 140, 0.06), 0 8px 24px -14px rgba(180, 140, 140, 0.16);
+  --shadow-1: 0 1px 2px rgba(180, 140, 140, 0.08);
+  --shadow-2: 0 1px 2px rgba(180, 140, 140, 0.10), 0 3px 8px -2px rgba(180, 140, 140, 0.12);
+  --shadow-float: 0 14px 36px -10px rgba(120, 70, 80, 0.24), 0 2px 6px rgba(120, 70, 80, 0.08);
+}
+
+/* 按钮主题层的变量。它们定义在 :root / html[data-theme] 上，
+   这里用 html:root / html:root[data-theme] 覆盖：特异性高一级，且不依赖加载顺序。 */
+html:root {
+  --button-fill-start: #cf4a14;
+  --button-fill-end: #c5410d;
+  --button-on-fill: #ffffff;
+  --button-accent-ink: #c2410c;
+  --button-focus: #e2551f;
+  --button-shadow: 0 1px 2px rgba(120, 40, 10, 0.20), 0 6px 14px -8px rgba(200, 67, 14, 0.55);
+}
+/* 深色主题原来把按钮换成了蓝紫色 (#aabaff)，和同一主题里的橙色强调 (#ff7a45) 是两套色相。
+   统一回同一支橙：填充提亮、字改深墨。 */
+html:root[data-theme="dark"] {
+  --button-fill-start: #ff8553;
+  --button-fill-end: #ff6f38;
+  --button-on-fill: #1b1206;
+  --button-accent-ink: #ffb59c;
+  --button-focus: #ffab8f;
+  --button-shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 6px 14px -8px rgba(255, 122, 69, 0.45);
+}
+html:root[data-theme="macaron"] {
+  --button-accent-ink: #a8465f;
+  --button-focus: #b3506a;
+  --button-shadow: 0 1px 2px rgba(145, 79, 94, 0.16), 0 6px 14px -8px rgba(190, 110, 125, 0.40);
+}
+
+/* --------------------------------------------------------------- 1. 基础 */
+
+html:root body button {
+  border-radius: var(--radius-ctl);
+  /* 原来只过渡位移/阴影/滤镜，所以换背景色是「跳」过去的。
+     这里的属性清单是量出来的，加属性前请先看 测试报告.md 第四节：
+     · 不要加 color（文字颜色）：它是可继承属性，过渡期间每一帧都要连带重算按钮里的子元素，
+       快速切页时样式重算多出近五成。文字颜色和原版一样即时切换。
+     · 不要加 border-color：一条会拆成上下左右四条过渡，时间弹层这类「按下后边框变色」的按钮
+       每次开合因此多跑几百毫秒（降速 4 倍下）。边框色即时切换。
+     · 背景色过渡保留：这是这层想要的「状态切换不再跳」。它同样有成本，换主题的场合
+       已经由下面的「换主题进行中」规则整体关掉。 */
+  transition: background-color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease,
+    transform 0.12s var(--ease-out), filter 0.16s ease;
+}
+/* 换主题进行中：脚本在主题属性变化后给根元素挂两帧这个标记，期间页面上所有过渡临时全关
+   （否则一次换主题会让所有按钮的背景色 / 边框色、所有勾选框的边框色同时逐帧重算，
+   连点换主题时主线程比原版多三到六成）。换主题 = 配色即时切换；其余场合的过渡照常。 */
+html:root.is-retheming body *,
+html:root.is-retheming body *::before,
+html:root.is-retheming body *::after { transition: none !important; }
+
+html:root body :is(a, summary, label, li, p, span, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 加载失败的图片不要露出破图图标和大段替代文字 */
+img[data-broken="1"] { display: none !important; }
+
+/* --------------------------------------------------------------- 2. 按钮体系 */
+
+html:root body :is(.btn, .tabs__btn, .segbar__btn, .themepick__btn,
+  .timepop__preset, .timeslot__btn, .txtav__font, .scan__mode,
+  .mdl__btn, .mdlpreset__btn, .mdlchip, .caprow__btn, .cmp__task,
+  .consent__btn, .asstacts__btn, .nativebar__act, .setrow__btn,
+  .guide__skip, .guide__prev, .guide__next) {
+  border-radius: var(--radius-ctl);
+  font-weight: 600;
+}
+
+/* 次按钮：一层表面 + 一根细线，不用渐变 */
+html:root body :is(.btn--ghost, .user__btn, .user__menu-item, .timepop__preset,
+  .timeslot__btn, .txtav__font, .mdl__btn, .mdlpreset__btn, .mdlchip,
+  .caprow__btn, .cmp__task, .consent__btn, .asstacts__btn, .setrow__btn,
+  .nativebar__act, .scan__mode, .vox__alt, .vox__close, .vox__mode,
+  .asst__chip, .asst__model, .memo__rwchip, .guide__skip, .guide__prev,
+  .summary__clear, .arcbar__all, .sort-option, .timepick__opt, .attachsrc__cancel) {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-1);
+}
+
+/* 主按钮：同色系上下两档的实心填充，去掉对角渐变和顶部高光 */
+html:root body :is(.btn--primary, .addbar__btn, .memobar__new, .asst__send,
+  .vox__stop, .vox__addtodo) {
+  background: linear-gradient(180deg, var(--button-fill-start), var(--button-fill-end));
+  color: var(--button-on-fill);
+  border: 1px solid transparent;
+  box-shadow: var(--button-shadow);
+}
+
+/* 这些本来就是「安静的文字动作」，不该长成描边药丸 */
+html:root body :is(.summary__clear, .arcbar__all, .sort-option, .guide__skip, .user__menu-item) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+}
+html:root body .user__menu-item:hover { color: var(--text); }
+html:root body #logout-btn:hover { color: var(--danger); }
+
+/* 四态 */
+html:root body button:not(:disabled):not([aria-disabled="true"]):active {
+  transform: scale(0.975);
+  filter: brightness(0.94);
+}
+@media (hover: hover) and (pointer: fine) {
+  html:root body button:not(:disabled):not([aria-disabled="true"]):hover {
+    transform: none;
+    filter: brightness(1.05);
+  }
+}
+html:root body button:focus-visible {
+  outline: 2px solid var(--button-focus);
+  outline-offset: 2px;
+}
+html:root body button:is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------- 3. 选中态 */
+
+/* 分段切换 / 登录页切换：白色浮起片，不带描边 */
+html:root body :is(.tabs__btn, .segbar__btn) {
+  color: var(--text-2);
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+html:root body :is(.tabs__btn, .segbar__btn):is(.is-active, [aria-checked="true"], [aria-selected="true"]) {
+  color: var(--text);
+  background: var(--seg-on);
+  border-color: transparent;
+  box-shadow: var(--shadow-2);
+  font-weight: 650;
+}
+
+/* 各类小标签：浅色底 + 强调色字 + 一圈半透明同色细线（原来描边 + 内描边两圈） */
+html:root body :is(.timeslot__btn, .txtav__font, .scan__mode, .mdlpreset__btn,
+  .mdlchip, .caprow__btn, .cmp__task, .timepick__opt, .consent__btn, .ring-item):is(.is-active, [aria-checked="true"], [aria-selected="true"]),
+html:root body .vox__mode:is(.is-on, [aria-pressed="true"]) {
+  color: var(--button-accent-ink);
+  background: var(--button-soft);
+  border-color: color-mix(in srgb, var(--button-accent-ink) 30%, transparent);
+  box-shadow: none;
+  font-weight: 600;
+}
+html:root body .sort-option:is(.is-active, [aria-checked="true"], [aria-selected="true"]) {
+  background: var(--button-soft);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--button-accent-ink);
+}
+/* 权限条上的主操作应当是实心主色 */
+html:root body .nativebar__act[data-tone="primary"] {
+  background: linear-gradient(180deg, var(--button-fill-start), var(--button-fill-end));
+  color: var(--button-on-fill);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* 主题选择器：按钮本身就是配色预览，保留各自的预览色，只把选中环收成一圈 */
+/* 三块按钮各自固定：预览块的颜色是「所代表主题」的配色，不能跟随当前主题。
+   「浅色」块永远是白底，字色必须钉死为深墨色——跟 var(--text) 走的话，
+   深色模式下会变成近白字（#eef1f7）配白底，对比度只有 1.07:1，等于看不见。 */
+html:root body .themepick__btn[data-mode="light"] { background: #ffffff; color: #3a4356; }
+/* 悬停/按下时全局给按钮套 brightness()，白底已到顶被钳制、字色却会被一起提亮变淡，
+   所以三态各自钉一次字色，任何主题下都保持清晰。 */
+@media (hover: hover) and (pointer: fine) {
+  html:root body .themepick__btn[data-mode="light"]:hover { color: #2c3444; }
+}
+html:root body .themepick__btn[data-mode="light"]:active { color: #262d3b; }
+html:root body .themepick__btn[data-mode="light"]:focus-visible { color: #2c3444; }
+html:root body .themepick__btn[data-mode="dark"] { background: #1c1f28; color: #e7eaf3; }
+html:root body .themepick__btn[data-mode="macaron"] { background: #fdeef0; color: #a8465f; }
+html:root body .themepick__btn:is(.is-active, [aria-checked="true"], [aria-selected="true"]) {
+  box-shadow: 0 0 0 2px var(--button-accent-ink);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- 4. 登录页 */
+
+html:root body .auth__logo { border-radius: 16px; box-shadow: 0 8px 20px -8px rgba(245, 91, 35, 0.55); }
+html:root body .auth__title { font-size: 23px; line-height: 1.25; }
+html:root body .auth__subtitle { margin-top: 6px; font-size: var(--fs-13); line-height: 1.5; }
+html:root body .auth__card { padding: 16px 16px 18px; }
+html:root body .auth .tabs { padding: 3px; gap: 2px; border-radius: 12px; background: var(--seg-track); }
+html:root body .auth .tabs__btn { border-radius: 9px; height: 38px; min-height: 38px; }
+html:root body .field { margin-bottom: 14px; }
+html:root body .field__label { margin-bottom: 6px; font-size: var(--fs-13); font-weight: 600; }
+html:root body .field__input { height: 46px; border-radius: var(--radius-ctl); font-size: 16px; }
+html:root body .auth__link {
+  min-height: 44px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--button-accent-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+html:root body .auth__link--danger { background: transparent; color: var(--danger); }
+html:root body .auth__note { margin-top: 14px; font-size: var(--fs-12); line-height: 1.55; }
+
+/* --------------------------------------------------------------- 5. 主视图 · 顶栏与切换 */
+
+html:root body #view-todo { padding: 0 16px calc(24px + var(--safe-bottom)); max-width: 640px; }
+html:root body #view-todo .topbar {
+  margin: 0 -16px;
+  padding: 14px 16px 10px;
+  /* 原来渐变的透明端写死了浅色的 rgba，换主题后顶栏底部会留一道灰蓝 */
+  background: linear-gradient(180deg, var(--bg) 72%, transparent);
+}
+html:root body .topbar__title { font-size: var(--fs-22); line-height: 1.25; letter-spacing: 0.2px; }
+html:root body .topbar__date { margin-top: 2px; font-size: var(--fs-12); line-height: 1.4; color: var(--muted); }
+html:root body .user { gap: 4px; }
+html:root body .user__btn {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 10px 0 9px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+html:root body .user__menu { padding: 6px; border-radius: 14px; box-shadow: var(--shadow-float); }
+html:root body .user__menu-item { padding: 10px 12px; border-radius: 10px; font-size: 14.5px; }
+
+html:root body .main .segbar {
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--seg-track);
+}
+html:root body .segbar__btn {
+  height: 40px;
+  min-height: 40px;
+  border-radius: 9px;
+  font-size: 14.5px;
+}
+html:root body .segbar__badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  line-height: 18px;
+  font-size: 11px;
+  background: var(--seg-track);
+  color: var(--text-2);
+}
+html:root body .segbar__btn.is-active .segbar__badge { background: var(--button-soft); color: var(--button-accent-ink); }
+
+/* --------------------------------------------------------------- 6. 主视图 · 输入区 */
+
+/* 第一行：一个完整的输入框 + 麦克风 + 加号。
+   麦克风叠放在输入框右端内侧，输入框因此拿到 84% 的宽度（原来三个盒子并排，只占 44%）。 */
+html:root body #form-add { position: relative; gap: 8px; }
+html:root body #form-add .addbar__input {
+  height: 48px;
+  padding: 0 58px 0 14px;
+  border-radius: 13px;
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font-size: 16px;
+}
+html:root body #form-add .addbar__input::placeholder { color: var(--muted); font-size: 15px; }
+html:root body #form-add .addbar__input:focus {
+  border-color: var(--brand-fill);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-fill) 16%, transparent);
+}
+html:root body #form-add .addbar__mic {
+  position: absolute;
+  right: 58px;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  transform: translateY(-50%);
+  border-color: transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2);
+  box-shadow: none;
+}
+html:root body #form-add .addbar__mic:hover { color: var(--brand-ink); background: var(--primary-soft); border-color: transparent; }
+html:root body #form-add .addbar__mic:active { transform: translateY(-50%) scale(0.9); }
+/* 「正在听」原本是实心主色，被按钮主题层的次按钮规则盖掉了，这里恢复 */
+html:root body #form-add .addbar__mic.is-listening {
+  color: var(--button-on-fill);
+  background: var(--brand-fill);
+  border-color: var(--brand-fill);
+}
+html:root body #form-add .addbar__btn {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  border-radius: 13px;
+}
+html:root body #form-add .addbar__btn:active { transform: scale(0.95); filter: brightness(0.94); }
+html:root body .addbar__hint { margin-top: 6px; font-size: var(--fs-12); }
+
+/* 第二行：这条待办的附加选项 —— 提醒时间 · 附件 …… 消息提醒与词库 */
+html:root body #panel-todos .addmeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-height: 40px;
+  margin: 6px 0 0;
+}
+/* 视觉 32px，触区用伪元素补足到 44px，不占布局高度。
+   两个参数特意写成同特异性（.addmeta .optchip 和 .timefield--add .timechip 都是两个类）：
+   产出时 :is() 会被逐参数展开，各分支的特异性要保持和原来一样。 */
+html:root body :is(.timefield--add .timechip, .addmeta .optchip) {
+  position: relative;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 30px;
+  box-shadow: none;
+}
+html:root body :is(.timefield--add .timechip, .addmeta .optchip)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  bottom: -6px;
+}
+html:root body .timefield--add .timechip:hover { border-color: var(--line-strong); }
+html:root body .timefield--add:is([data-tone="normal"], [data-tone="info"], [data-tone="warn"], [data-tone="urgent"], [data-tone="overdue"]) .timechip {
+  border-color: transparent;
+}
+html:root body .timefield--add .timefield__clear {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 50%;
+  color: var(--text-3);
+}
+html:root body .optchip { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
+html:root body .optchip:hover { border-color: var(--line-strong); color: var(--text); }
+html:root body .optlink {
+  margin-left: auto;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+html:root body .optlink:hover { color: var(--brand-ink); text-decoration-color: currentColor; }
+@media (max-width: 379px) {
+  html:root body .optlink { margin-left: auto; }
+}
+
+/* --------------------------------------------------------------- 7. 主视图 · 统计行与列表 */
+
+html:root body #view-todo .summary { margin: 12px 0 10px; gap: 8px; }
+html:root body .summary__text { font-size: var(--fs-13); font-weight: 500; color: var(--text-2); }
+html:root body .summary__acts { gap: 2px; }
+html:root body .sortbtn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 10px;
+  color: var(--text-2);
+}
+html:root body .summary__clear { height: 36px; min-height: 36px; padding: 0 8px; border-radius: 10px; font-size: var(--fs-13); font-weight: 500; }
+html:root body .summary__clear:hover { color: var(--danger); background: var(--danger-soft); }
+
+html:root body .todo-list { gap: 8px; }
+html:root body .todo {
+  gap: 10px;
+  padding: 10px 8px 8px 12px;
+  border-radius: var(--radius-card);
+  border-color: var(--line);
+  box-shadow: none;
+}
+html:root body .todo__check {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  border-color: var(--line-strong);
+}
+html:root body .todo__check:hover { border-color: var(--brand-fill); }
+html:root body .todo__check:active { transform: scale(0.9); }
+html:root body .todo__check:checked { border-color: var(--brand-fill); background-color: var(--brand-fill); }
+html:root body .todo__body { gap: 2px; }
+html:root body .todo__row { gap: 4px; }
+html:root body .todo__text { font-size: var(--fs-15); line-height: 1.45; font-weight: 500; }
+html:root body .todo__delete {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  margin: -4px -2px 0 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-3);
+}
+html:root body .todo__delete:hover { color: var(--danger); background: var(--danger-soft); }
+html:root body .todo__meta { margin-top: 1px; }
+
+/* 卡片里的「添加提醒 / 提醒时间」：安静的文字标签，不再是 44px 高的大按钮 */
+html:root body :is(.todo, .arc) .timechip {
+  position: relative;
+  height: 28px;
+  min-height: 28px;
+  margin-left: -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: var(--fs-12);
+  font-weight: 500;
+  line-height: 28px;
+}
+html:root body :is(.todo, .arc) .timechip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -8px;
+  bottom: -8px;
+}
+html:root body :is(.todo, .arc) .timefield[data-tone="idle"] .timechip { color: var(--muted); }
+html:root body :is(.todo, .arc) .timechip:hover { background: var(--bg); }
+html:root body :is(.todo, .arc) .timefield__clear {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  color: var(--text-3);
+}
+
+html:root body .empty { margin-top: 56px; color: var(--text-3); }
+html:root body .empty__title { margin: 14px 0 4px; font-size: 16px; font-weight: 600; line-height: 1.4; }
+html:root body .empty__text { margin: 0; font-size: var(--fs-13); line-height: 1.5; }
+
+/* --------------------------------------------------------------- 8. 已办 / 笔记 */
+
+html:root body .arcbar { margin: 2px 0 10px; gap: 8px; }
+html:root body .arcbar__count { font-size: var(--fs-12); }
+html:root body .arc {
+  gap: 10px;
+  padding: 10px 6px 10px 12px;
+  align-items: center;
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+html:root body .arc__box { width: 22px; height: 22px; border-color: var(--line-strong); border-radius: 7px; }
+html:root body .arc__text { font-size: var(--fs-15); line-height: 1.45; }
+html:root body .arc__meta { margin-top: 2px; font-size: var(--fs-12); gap: 2px 12px; }
+html:root body .arc__meta > .arc__due { color: var(--text-3); }
+html:root body :is(.arc__delete, .arc__restore) {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  margin: 0;
+  border-radius: 10px;
+  background: transparent;
+  border-color: transparent;
+}
+html:root body .arc__delete { color: var(--text-3); }
+html:root body .arc__restore { color: var(--brand-ink); }
+html:root body :is(.arc__delete, .arc__restore):active { color: var(--danger); background: var(--danger-soft); }
+
+html:root body .memobar { gap: 8px; padding: 2px 0 10px; }
+html:root body .memobar__search { height: 40px; border-radius: 12px; font-size: 14.5px; }
+html:root body .memobar__new { height: 40px; min-height: 40px; border-radius: 12px; font-size: 14px; }
+
+/* --------------------------------------------------------------- 9. 弹层与设置行 */
+
+html:root body .sheet {
+  padding: 14px 16px calc(18px + 6px);
+  border-radius: 18px;
+  box-shadow: var(--shadow-float);
+}
+html:root body .sheet__head { padding: 14px 16px 10px; margin: -14px -16px 0; top: -14px; }
+html:root body .sheet__title { font-size: var(--fs-17); font-weight: 650; letter-spacing: 0.1px; }
+html:root body .sheet__close { color: var(--text-2); }
+html:root body .sheet__actions { gap: 8px; margin-top: 16px; }
+
+html:root body .setrow { padding: 12px 0; gap: 12px; border-top-color: var(--line); }
+html:root body .setrow:first-of-type { margin-top: 10px; }
+html:root body .setrow__main { gap: 3px; }
+html:root body .setrow__label { font-size: var(--fs-15); font-weight: 500; line-height: 1.4; }
+/* 说明文字原来强制单行 + 省略号，把「内容会不会出网」这类关键说明截掉了。改成最多两行。 */
+html:root body .setrow__desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: clip;
+  font-size: var(--fs-12);
+  line-height: 1.45;
+  color: var(--muted);
+}
+html:root body .setrow__btn { padding: 0 12px; border-color: var(--line-strong); color: var(--text); font-size: var(--fs-13); }
+html:root body .switch[aria-checked="true"] { background: var(--brand-fill); }
+
+/* 堆叠式设置行里直接裸放的文本域（如「常用人名」）原来没有任何样式，是浏览器默认的
+   黑字白底灰边：深色主题下会是一整块白。统一成和其它输入框一致。 */
+html:root body .setrow--stack > textarea {
+  display: block;
+  width: 100%;
+  margin: 2px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-ctl);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14.5px;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+html:root body .setrow--stack > textarea::placeholder { color: var(--muted); }
+html:root body .setrow--stack > textarea:focus {
+  border-color: var(--brand-fill);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-fill) 16%, transparent);
+}
+
+/* 笔记面板的两个图标按钮：和输入行的麦克风同一套 */
+html:root body :is(.memobar__review, .memobar__ask) {
+  border-radius: var(--radius-ctl);
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--brand-ink);
+  box-shadow: var(--shadow-1);
+}
+
+html:root body .confirm { border-radius: 18px; padding: 20px 18px 16px; box-shadow: var(--shadow-float); }
+html:root body .confirm__title { font-size: var(--fs-17); line-height: 1.35; }
+html:root body .confirm__text { margin-top: 8px; font-size: var(--fs-13); line-height: 1.6; }
+html:root body .confirm__actions .btn { height: 44px; font-size: 15px; }
+html:root body .toast { border-radius: 12px; background: rgba(27, 32, 48, 0.94); font-size: var(--fs-13); padding: 10px 16px; }
+
+/* --------------------------------------------------------------- 10. 消息提醒与词库（独立对话框）
+   它原来自带一整套硬编码的咖啡棕色，不走主题变量，深色主题下是一整块米白。
+   这里改为全部使用主题令牌。注意它的样式表（message-workbench.css）在本文件之后加载，
+   而且用的是 ID 级选择器，所以这一段的每条规则都必须带 html:root body 前缀才盖得住。 */
+
+html:root body #message-workbench {
+  width: min(92vw, 30rem);
+  max-height: min(86vh, 720px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+}
+html:root body #message-workbench::backdrop { background: rgba(20, 26, 44, 0.42); }
+html:root body #message-workbench header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 14px 16px 10px;
+  margin: 0 -1px;
+  background: var(--surface);
+}
+html:root body #message-workbench header > * { margin: 0; }
+html:root body #message-workbench > *:not(header) { margin-left: 16px; margin-right: 16px; }
+html:root body #message-workbench > *:last-child { margin-bottom: 20px; }
+html:root body #message-workbench section,
+html:root body #message-workbench details { margin-top: 14px; }
+html:root body #message-workbench label { gap: 4px; margin: 8px 0; font-size: 13.5px; font-weight: 600; color: var(--text-2); }
+html:root body #message-workbench input,
+html:root body #message-workbench textarea,
+html:root body #message-workbench select {
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 400;
+  font-size: 15px;
+}
+html:root body #message-workbench input:focus,
+html:root body #message-workbench textarea:focus,
+html:root body #message-workbench select:focus {
+  outline: none;
+  border-color: var(--brand-fill);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-fill) 16%, transparent);
+}
+html:root body #message-workbench button {
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: var(--shadow-1);
+}
+html:root body #message-workbench button[aria-pressed="true"] {
+  background: var(--button-soft);
+  border-color: color-mix(in srgb, var(--button-accent-ink) 30%, transparent);
+  color: var(--button-accent-ink);
+}
+html:root body #message-workbench ul { padding: 0; }
+html:root body #message-workbench li { border-bottom: 1px solid var(--line); padding: 10px 0; }
+html:root body #message-workbench li:last-child { border-bottom: 0; }
+html:root body #message-workbench audio { width: 100%; height: 40px; margin: 6px 0; border-radius: 10px; }
+html:root body #message-workbench summary { cursor: pointer; font-weight: 600; font-size: 15px; padding: 4px 0; }
+html:root body #message-workbench summary:focus-visible { outline: 2px solid var(--button-focus); outline-offset: 2px; border-radius: 6px; }
+html:root body #message-status,
+html:root body #word-status { min-height: 1.5em; font-size: var(--fs-12); color: var(--text-2); }
+html:root body #message-workbench details details { padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+html:root body #message-workbench .message-actions { padding-top: 4px; }
+
+/* --------------------------------------------------------------- 11. 动效降级 */
+
+@media (prefers-reduced-motion: reduce) {
+  html:root body button,
+  html:root body .todo,
+  html:root body .arc,
+  html:root body .sheet {
+    transition: none;
+    animation: none;
+  }
+}

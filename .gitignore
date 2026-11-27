@@ -19,3 +19,10 @@ build/
 pairing.code
 evidence/
 vocabulary-build/
+
+# 创新版本：构建产物、浏览器配置与测试输出不入库（APK 已由 *.apk 全局忽略）
+innovation/ui-v2/assets/
+innovation/ui-v2/profile/
+innovation/ui-v2/results/
+innovation/ui-v2/shots/
+innovation/ui-v2/install/

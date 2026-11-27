@@ -71,6 +71,12 @@
      届时视口也许已经矮了一截，所以尺寸必须提前在静止时量好。 */
   function captureRest() {
     if (open) return;
+    /* 原生内边距已经离开基准 = 键盘正在弹出/收起，此刻视口是矮的。
+       这时采下去会把「无键盘高度」记成动画中间值：实测快速收起再弹出时，
+       上一轮 release() 的 200ms 定时器正好落在这一轮的弹出动画里（视口 802 而非 869），
+       基准被记成 802，下一次锁定就按矮的高度锁，弹层整体上跳 67px。
+       所以此时直接跳过，等真回到基准后的那一次采集再更新。 */
+    if (baseBottom >= 0 && lastBottom > baseBottom + CLOSE_DELTA) return;
     restVp = global.innerHeight;
     var boxes = floaters();
     for (var i = 0; i < boxes.length; i++) {

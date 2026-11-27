@@ -53,15 +53,23 @@
   }
 
   /* 一行一个为主流粘贴格式；顿号 / 逗号 / 分号 / 竖线也当分隔符。
-     行首的序号（如「1. 张三」）顺手去掉，微信通讯录复制常带。 */
+     顺序很关键：必须**先按行剥掉行首序号，再切分隔符**。
+     反例（真机实测）：`3、测试丙、测试丁` 若先按顿号切，会切出孤立的 `3`，
+     序号正则匹配不到它，`3` 就被当成一个昵称导入了（提示「已加入 7 条」而非 6 条）。
+     纯数字条目再兜底丢掉，避免序号以任何形式残留。 */
   function splitNames(text) {
     return String(text == null ? '' : text)
-      .split(/[\r\n、，,；;|]+/)
+      .split(/\r?\n/)
       .map(function (line) {
-        return line.replace(/^\s*\d+[.、)．]\s*/, '').trim();
+        return line.replace(/^\s*\d+\s*[.、)．]\s*/, '').trim();
       })
-      .filter(function (line) {
-        return line.length > 0;
+      .join('\n')
+      .split(/[\r\n、，,；;|]+/)
+      .map(function (item) {
+        return item.trim();
+      })
+      .filter(function (item) {
+        return item.length > 0 && !/^\d+$/.test(item);
       });
   }
 
@@ -74,7 +82,8 @@
       '  <h2 id="' + DLG_ID + '-title">粘贴昵称</h2>',
       '  <button type="button" data-close>关闭</button>',
       '</header>',
-      '<p>在微信 / QQ 里长按昵称或备注复制，粘到下面。一行一个，或用顿号、逗号分隔。<br>',
+      '<p>在微信 / QQ 里长按昵称或备注复制，粘到下面。一行一个，或用顿号、逗号分隔，行首序号（1. / 3、）会自动去掉。<br>',
+      '  点「读取剪贴板」没反应时，长按输入框选「粘贴」即可。<br>',
       '  点「导入」只是追加到「常用人名」，核对无误后再点「保存常用人名」；保存时只保留 2–4 个汉字，',
       '  昵称里的表情、字母、数字行会被忽略。</p>',
       '<textarea id="' + DLG_ID + '-text" placeholder="李娜&#10;欧阳明宇"></textarea>',
@@ -108,12 +117,21 @@
     tip('已加入 ' + names.length + ' 条，请核对后点「保存常用人名」');
   }
 
+  /* 真机实测：待办 App 的 WebView 没处理 onPermissionRequest，readText() 必被拒
+     （NotAllowedError），所以这里的失败分支是常态而不是例外。失败时把焦点放到输入框，
+     让「长按 → 粘贴」这条系统菜单路径一步可达。 */
+  function guideManualPaste(message) {
+    var box = $(DLG_ID + '-text');
+    tip(message);
+    if (box) box.focus();
+  }
+
   function readClipboard() {
     var box = $(DLG_ID + '-text');
     var clip = global.navigator && global.navigator.clipboard;
     if (!box) return;
     if (!clip || typeof clip.readText !== 'function') {
-      tip('此环境读不到剪贴板，请长按输入框手动粘贴');
+      guideManualPaste('长按输入框，选「粘贴」即可');
       return;
     }
     clip.readText().then(function (text) {
@@ -123,7 +141,7 @@
       }
       box.value = box.value ? box.value.replace(/\s+$/, '') + '\n' + text : text;
     }).catch(function () {
-      tip('没有剪贴板权限，请长按输入框手动粘贴');
+      guideManualPaste('长按输入框，选「粘贴」即可');
     });
   }
 

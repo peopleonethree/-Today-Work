@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f4f6fb" />
+  <meta name="description" content="今日待办 —— 支持新增、勾选、删除、剩余计数、到点提醒，以及已完成任务的已办清单" />
+  <title>今日待办</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23f55b23'/%3E%3Crect x='7.5' y='8' width='17' height='16' rx='3.5' fill='white' transform='rotate(-4 16 16)'/%3E%3Cpath d='M11.5 16.2l3.4 3.3 6-6.5' fill='none' stroke='%23f55b23' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' transform='rotate(-4 16 16)'/%3E%3Cpath d='M21 24.5c1.8-.4 3.1-1.7 3.5-3.5l-3.5 1z' fill='white'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css?v=1073" />
+  <style>
+    @font-face {
+      font-family: "lxgw-wenkai";
+      src: url("fonts/lxgw-wenkai.woff2") format("woff2");
+      font-weight: 400;
+      font-display: swap;
+    }
+  </style>
+  <!-- 甲骨文（方正甲骨文，unicode-range 分片按需加载，用于文字头像） -->
+  <link rel="stylesheet" href="fonts/jiaguwen/font.css?v=1073" />
+  <link rel="stylesheet" href="button-theme.css?v=20261026" />
+  <link rel="stylesheet" href="guide-v2.css?v=20261026" />
+  <link rel="stylesheet" href="message-workbench.css?v=2" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ==================== 账号：登录 / 注册 ==================== -->
+    <section class="view" id="view-auth" aria-label="账号登录">
+      <div class="auth">
+        <div class="auth__brand">
+          <div class="auth__logo" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="30" height="30">
+              <rect x="5.5" y="6" width="21" height="20" rx="4" fill="#fff" transform="rotate(-4 16 16)" />
+              <path d="M10.5 16.2l3.8 3.7 7-7.6" fill="none" stroke="#f55b23" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round" transform="rotate(-4 16 16)" />
+              <path d="M22.2 27.5c2.3-.5 4-2.2 4.5-4.5l-4.5 1.3z" fill="#fff" />
+            </svg>
+          </div>
+          <h1 class="auth__title">今日待办</h1>
+          <p class="auth__subtitle">把今天要做的事，一件一件变少</p>
+          <img class="auth__cover" src="assets/封面.png"
+               onerror="this.onerror=null;this.src='封面.png'"
+               alt="今日待办封面：把今天要做的事，一件一件变少" />
+        </div>
+
+        <div class="card auth__card">
+          <div class="tabs" role="tablist" aria-label="登录或注册">
+            <button type="button" class="tabs__btn is-active" id="tab-login"
+                    role="tab" aria-selected="true" aria-controls="form-login">登录</button>
+            <button type="button" class="tabs__btn" id="tab-register"
+                    role="tab" aria-selected="false" aria-controls="form-register">注册</button>
+          </div>
+
+          <!-- 登录 -->
+          <form class="form" id="form-login" novalidate>
+            <label class="field" for="login-username">
+              <span class="field__label">用户名</span>
+              <input class="field__input" id="login-username" name="username" type="text"
+                     autocomplete="username" placeholder="请输入用户名" enterkeyhint="next" />
+            </label>
+            <label class="field" for="login-password">
+              <span class="field__label">密码</span>
+              <input class="field__input" id="login-password" name="password" type="password"
+                     autocomplete="current-password" placeholder="请输入密码" enterkeyhint="go" />
+            </label>
+            <p class="form__error" id="login-error" role="alert"></p>
+            <button class="btn btn--primary btn--block" id="login-submit" type="submit">登录</button>
+          </form>
+
+          <!-- 注册 -->
+          <form class="form is-hidden" id="form-register" novalidate>
+            <label class="field" for="reg-username">
+              <span class="field__label">用户名</span>
+              <input class="field__input" id="reg-username" name="username" type="text"
+                     autocomplete="username" placeholder="2–20 位，中文 / 字母 / 数字 / 下划线"
+                     enterkeyhint="next" maxlength="20" />
+            </label>
+            <label class="field" for="reg-password">
+              <span class="field__label">密码</span>
+              <input class="field__input" id="reg-password" name="password" type="password"
+                     autocomplete="new-password" placeholder="至少 6 位" enterkeyhint="next" maxlength="64" />
+            </label>
+            <label class="field" for="reg-confirm">
+              <span class="field__label">确认密码</span>
+              <input class="field__input" id="reg-confirm" name="confirm" type="password"
+                     autocomplete="new-password" placeholder="请再次输入密码" enterkeyhint="go" maxlength="64" />
+            </label>
+            <p class="form__error" id="reg-error" role="alert"></p>
+            <button class="btn btn--primary btn--block" id="reg-submit" type="submit">创建账号</button>
+          </form>
+        </div>
+
+        <!-- 游客 / 账号维护：登录页上就能做的事 -->
+        <div class="auth__acts">
+          <button type="button" class="auth__link" id="guest-btn">游客登录</button>
+          <button type="button" class="auth__link" id="change-pass-btn">修改密码</button>
+          <button type="button" class="auth__link" id="forgot-btn">忘记密码</button>
+          <button type="button" class="auth__link auth__link--danger" id="delete-account-btn">注销账号</button>
+        </div>
+
+        <p class="auth__note" id="auth-note">
+          <svg class="auth__note-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path d="M12 11v5.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <circle cx="12" cy="7.8" r="1.15" fill="currentColor" />
+          </svg>
+          <span>当前为本机账号模式：账号与待办数据保存在此浏览器中。</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ==================== 待办清单 / 已办 ==================== -->
+    <section class="view is-hidden" id="view-todo" aria-label="今日待办清单">
+      <header class="topbar">
+        <div class="topbar__main">
+          <h1 class="topbar__title">今日待办</h1>
+          <p class="topbar__date" id="today-date"></p>
+        </div>
+        <div class="user">
+          <button type="button" class="user__face" id="avatar-btn"
+                  aria-haspopup="dialog" aria-label="设置头像">
+            <span class="user__avatar" id="user-avatar">·</span>
+          </button>
+          <button type="button" class="user__btn" id="user-btn"
+                  aria-haspopup="true" aria-expanded="false" aria-label="账号菜单">
+            <span class="user__name" id="user-name"></span>
+            <svg class="user__chev" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+              <path d="M6 9.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="user__menu is-hidden" id="user-menu" role="menu">
+            <button type="button" class="user__menu-item" id="settings-btn" role="menuitem">设置</button>
+            <button type="button" class="user__menu-item" id="switch-btn" role="menuitem">切换账号</button>
+            <button type="button" class="user__menu-item" id="logout-btn" role="menuitem">退出登录</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <!-- 视图切换 -->
+        <div class="segbar" role="tablist" aria-label="切换视图">
+          <button type="button" class="segbar__btn is-active" id="tab-todos"
+                  role="tab" aria-selected="true" aria-controls="panel-todos">
+            <span>待办</span>
+            <span class="segbar__badge is-hidden" id="badge-todos">0</span>
+          </button>
+          <button type="button" class="segbar__btn" id="tab-archive"
+                  role="tab" aria-selected="false" aria-controls="panel-archive">
+            <span>已办</span>
+            <span class="segbar__badge is-hidden" id="badge-archive">0</span>
+          </button>
+          <button type="button" class="segbar__btn" id="tab-memos"
+                  role="tab" aria-selected="false" aria-controls="panel-memos">
+            <span>笔记</span>
+            <span class="segbar__badge is-hidden" id="badge-memos">0</span>
+          </button>
+        </div>
+
+        <!-- ---------- 待办面板 ---------- -->
+        <section class="panel" id="panel-todos" role="tabpanel" aria-labelledby="tab-todos">
+          <button type="button" class="btn btn--ghost btn--sm" id="open-message-workbench">消息提醒与词库</button>
+          <form class="addbar" id="form-add" novalidate>
+            <input class="addbar__input" id="new-todo" type="text" placeholder="今天要做点什么？"
+                   autocomplete="off" enterkeyhint="done"
+                   aria-label="新任务内容" />
+            <button class="addbar__mic" id="voice-btn" type="button" aria-label="语音输入">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <rect x="9.2" y="3.4" width="5.6" height="10.4" rx="2.8" fill="none"
+                      stroke="currentColor" stroke-width="1.9" />
+                <path d="M6 11.4a6 6 0 0 0 12 0M12 17.4v3.2" fill="none"
+                      stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="addbar__mic" id="draw-btn" type="button" aria-label="添加附件" title="添加附件">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path d="M8.5 12.5l5.7-5.7a2.4 2.4 0 0 1 3.4 3.4l-7.5 7.5a4 4 0 0 1-5.7-5.7l7.1-7.1" fill="none"
+                      stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <button class="addbar__btn" id="add-btn" type="submit" aria-label="添加任务">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor"
+                      stroke-width="2.2" stroke-linecap="round" />
+              </svg>
+            </button>
+          </form>
+
+          <!-- 语音助手入口提示：说完一句话后助手面板会展开，这里只在面板关着时提示上一轮结论 -->
+
+          <!-- 附件暂存栏：手绘/拍照等先挂在这里，随「添加」一起写进这条待办 -->
+          <div class="attachbar is-hidden" id="edit-attach-bar">
+            <span class="attachbar__label">附件</span>
+            <div class="attachbar__list" id="edit-attach-list"></div>
+          </div>
+
+          <!-- 录音状态条：正在录音时出现，点「停止」结束 -->
+          <div class="audiobar is-hidden" id="audio-rec-bar">
+            <span class="audiobar__dot"></span>
+            <span class="audiobar__text">正在录音…</span>
+            <button type="button" class="audiobar__stop" id="audio-rec-stop">停止</button>
+          </div>
+
+          <div class="addmeta">
+            <span class="timefield timefield--add" id="add-timefield" data-tone="idle">
+              <button type="button" class="timechip" id="time-chip"
+                      aria-haspopup="dialog" aria-label="设置提醒时间">
+                <svg class="timechip__icon" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.9" />
+                  <path d="M12 7.4V12l3.1 1.9" fill="none" stroke="currentColor"
+                        stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="timechip__text" id="time-chip-text">设置提醒时间</span>
+              </button>
+              <button type="button" class="timefield__clear is-hidden" id="time-clear"
+                      aria-label="清除提醒时间">
+                <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true">
+                  <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none"
+                        stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+                </svg>
+              </button>
+            </span>
+          </div>
+          <p class="addbar__hint" id="add-hint" role="alert"></p>
+          <section class="time-suggestions is-hidden" id="add-digit-fix" aria-label="待办语音数字核对">
+            <p id="add-digit-raw"></p>
+            <p>疑似数字同音字，请核对候选；漏读或漏识别的数字需要手工补充。</p>
+            <div class="memo__tools">
+              <button type="button" class="btn btn--primary btn--sm" id="add-digit-adopt">按数字采用</button>
+              <button type="button" class="btn btn--ghost btn--sm is-hidden" id="add-digit-undo">恢复识别原文</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="add-digit-dismiss">收起</button>
+            </div>
+          </section>
+          <section class="time-suggestions is-hidden" id="add-time-suggestions" aria-label="识别到的提醒时间">
+            <p role="status">识别到时间关键词，请选择提醒时间。仅日期按常用时刻建议；选好后点加号添加待办。</p>
+            <div class="memo__tools" id="add-time-options"></div>
+            <div class="memo__tools">
+              <button type="button" class="btn btn--ghost btn--sm" id="add-time-custom">自选时间</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="add-time-dismiss">收起建议</button>
+            </div>
+          </section>
+
+          <div class="summary">
+            <span class="summary__text" id="summary-text">剩余 0 项</span>
+            <div class="summary__acts">
+              <button type="button" class="sortbtn" id="sort-btn-active" aria-haspopup="dialog"
+                      aria-label="排序待办列表" title="排序">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <path d="M4 7h10M4 12h16M4 17h7" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <button type="button" class="summary__clear is-hidden" id="clear-done">清除已完成</button>
+            </div>
+          </div>
+
+          <ul class="todo-list" id="todo-list"></ul>
+
+          <div class="empty is-hidden" id="empty-state">
+            <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+              <rect x="10" y="6" width="44" height="52" rx="10" fill="none"
+                    stroke="currentColor" stroke-width="2.4" />
+              <path d="M23 24h18M23 34h13" stroke="currentColor" stroke-width="2.4"
+                    stroke-linecap="round" />
+              <path d="M19 44l3.4 3.4L29 41" fill="none" stroke="currentColor"
+                    stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <p class="empty__title" id="empty-title">今天还没有待办</p>
+            <p class="empty__text" id="empty-text">在上方输入框写下第一件事吧</p>
+          </div>
+        </section>
+
+        <!-- ---------- 已办面板 ---------- -->
+        <section class="panel is-hidden" id="panel-archive" role="tabpanel" aria-labelledby="tab-archive">
+          <div class="arcbar">
+            <label class="arcbar__all" for="archive-all">
+              <input type="checkbox" class="arc__box" id="archive-all" disabled />
+              <span>全选</span>
+            </label>
+            <span class="arcbar__count" id="archive-count">共 0 项</span>
+            <div class="arcbar__acts">
+              <button type="button" class="sortbtn sortbtn--arc" id="sort-btn-archive"
+                      aria-haspopup="dialog" aria-label="排序已办列表" title="排序">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <path d="M4 7h10M4 12h16M4 17h7" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <button type="button" class="btn btn--sm btn--danger-ghost" id="archive-delete"
+                      disabled>删除所选</button>
+              <button type="button" class="btn btn--sm btn--ghost" id="archive-clear"
+                      disabled>清空全部</button>
+            </div>
+          </div>
+
+          <ul class="arc-list" id="archive-list"></ul>
+
+          <div class="empty is-hidden" id="archive-empty">
+            <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+              <path d="M13 24h38v24a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4V24z" fill="none"
+                    stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" />
+              <path d="M9.5 15h45v9h-45z" fill="none" stroke="currentColor"
+                    stroke-width="2.4" stroke-linejoin="round" />
+              <path d="M26 34h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+            </svg>
+            <p class="empty__title">还没有已办事项</p>
+            <p class="empty__text">确认完成的任务会存到这里</p>
+          </div>
+        </section>
+
+        <!-- ---------- 笔记面板 ----------
+             待办只装得下一句话，长了没处放。笔记有正文，摘要 / 提取待办
+             才有处理对象；两者靠「提取待办」单向连接，改了笔记不会动待办。 -->
+        <section class="panel is-hidden" id="panel-memos" role="tabpanel" aria-labelledby="tab-memos">
+          <div class="memobar">
+            <input class="memobar__search" id="memo-search" type="search"
+                   placeholder="搜标题或正文" autocomplete="off" aria-label="搜索笔记" />
+            <!-- 本周回顾：纯本地统计（新增/完成/采纳率/沉淀），AI 周评可选 -->
+            <button type="button" class="memobar__review" id="memo-review" aria-label="本周回顾">
+              <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M5 20V10M12 20V4M19 20v-7" fill="none" stroke="currentColor"
+                      stroke-width="2.4" stroke-linecap="round" />
+              </svg>
+            </button>
+            <!-- 问一问：检索 top-5 片段交给模型作答，每条结论带 [n] 出处 -->
+            <button type="button" class="memobar__ask" id="memo-ask" aria-label="问一问">
+              <span>问</span>
+            </button>
+            <button type="button" class="memobar__new" id="memo-new">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor"
+                      stroke-width="2.2" stroke-linecap="round" />
+              </svg>
+              <span>记一条</span>
+            </button>
+          </div>
+          <p class="memobar__hint" id="memo-hint"></p>
+
+          <ul class="memo-list" id="memo-list"></ul>
+
+          <div class="empty is-hidden" id="memo-empty">
+            <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+              <path d="M15 10h24l10 10v34a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4z"
+                    fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" />
+              <path d="M38 10v11h11M21 32h18M21 41h13" fill="none" stroke="currentColor"
+                    stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <p class="empty__title" id="memo-empty-title">还没有笔记</p>
+            <p class="empty__text" id="memo-empty-text">点右上角「记一条」，长内容也有地方放了</p>
+          </div>
+        </section>
+      </main>
+    </section>
+
+  </div>
+
+  <!-- ==================== 提醒时间选择面板 ==================== -->
+  <div class="timepop-layer is-hidden" id="time-pop-layer">
+    <div class="timepop" id="time-pop" role="dialog" aria-label="设置提醒时间">
+      <div class="timepop__head">
+        <span class="timepop__title">提醒时间</span>
+        <button type="button" class="timepop__close" id="time-pop-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none"
+                  stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="timepop__presets" id="time-pop-presets">
+        <button type="button" class="timepop__preset" data-minutes="10">10 分钟后</button>
+        <button type="button" class="timepop__preset" data-minutes="30">30 分钟后</button>
+        <button type="button" class="timepop__preset" data-minutes="60">1 小时后</button>
+        <button type="button" class="timepop__preset" data-minutes="180">3 小时后</button>
+      </div>
+
+      <!-- 模糊时段：只说「上午 / 下午 / 全天」，不逼用户挑到分钟。
+           选中后时、分两栏收起，只留日期 + 时段。 -->
+      <div class="timeslot" id="time-pop-slots" role="group" aria-label="模糊时段">
+        <button type="button" class="timeslot__btn" data-slot="morning">上午</button>
+        <button type="button" class="timeslot__btn" data-slot="noon">中午</button>
+        <button type="button" class="timeslot__btn" data-slot="afternoon">下午</button>
+        <button type="button" class="timeslot__btn" data-slot="evening">傍晚</button>
+        <button type="button" class="timeslot__btn" data-slot="night">晚上</button>
+        <button type="button" class="timeslot__btn" data-slot="allday">全天</button>
+      </div>
+
+      <!-- 日期 / 时 / 分：自绘下拉。原生 <select> 在部分 WebView 上弹不出列表，
+           全屏 RadioGroup 样式也与 App 完全不搭，所以这里全程自己画。 -->
+      <div class="timepop__picker">
+        <button type="button" class="timepickfield timepickfield--date" id="time-pop-date-btn"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="timepop__label">日期</span>
+          <span class="timepickfield__row">
+            <span class="timepickfield__value" id="time-pop-date-text">今天</span>
+            <svg class="timepickfield__chev" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+              <path d="M6 9.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </button>
+        <div class="timepop__clock" id="time-pop-clock">
+        <button type="button" class="timepickfield timepickfield--clock" id="time-pop-hour-btn"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="timepop__label">时</span>
+          <span class="timepickfield__row">
+            <span class="timepickfield__value" id="time-pop-hour-text">06</span>
+            <svg class="timepickfield__chev" viewBox="0 0 24 24" width="10" height="10" aria-hidden="true">
+              <path d="M6 9.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </button>
+        <button type="button" class="timepickfield timepickfield--clock" id="time-pop-minute-btn"
+                aria-haspopup="listbox" aria-expanded="false">
+          <span class="timepop__label">分</span>
+          <span class="timepickfield__row">
+            <span class="timepickfield__value" id="time-pop-minute-text">40</span>
+            <svg class="timepickfield__chev" viewBox="0 0 24 24" width="10" height="10" aria-hidden="true">
+              <path d="M6 9.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </button>
+        </div>
+      </div>
+      <p class="timeslot__note is-hidden" id="time-pop-slotnote"></p>
+
+      <!-- 下拉列表：贴在对应按钮下方，超出面板时自动翻到上方 -->
+      <div class="timepick is-hidden" id="time-pop-list" role="listbox" aria-label="选择日期或时间"></div>
+
+      <p class="timepop__error" id="time-pop-error" role="alert"></p>
+
+      <div class="timepop__actions">
+        <button type="button" class="btn btn--ghost" id="time-pop-cancel">取消</button>
+        <button type="button" class="btn btn--primary" id="time-pop-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 确认弹层 ==================== -->
+  <div class="confirm-layer is-hidden" id="confirm-layer">
+    <div class="confirm" id="confirm-box" role="dialog" aria-modal="true"
+         aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <h2 class="confirm__title" id="confirm-title">确认删除</h2>
+      <p class="confirm__text" id="confirm-text"></p>
+      <div class="confirm__actions">
+        <button type="button" class="btn btn--ghost" id="confirm-cancel">取消</button>
+        <button type="button" class="btn btn--danger" id="confirm-ok">删除</button>
+      </div>
+      <button type="button" class="confirm__extra is-hidden" id="confirm-extra"></button>
+    </div>
+  </div>
+
+  <!-- ==================== 头像弹层 ==================== -->
+  <div class="sheet-layer is-hidden" id="avatar-layer">
+    <div class="sheet sheet--avatar" role="dialog" aria-modal="true" aria-labelledby="avatar-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="avatar-title">设置头像</h2>
+        <button type="button" class="sheet__close" id="avatar-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="avatar-hero">
+        <span class="avatar-hero__circle" id="avatar-preview">·</span>
+        <div class="avatar-hero__acts">
+          <button type="button" class="btn btn--primary btn--sm" id="avatar-gallery">从相册选择</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="avatar-text">文字头像</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="avatar-remove">移除头像</button>
+        </div>
+        <p class="avatar-hero__hint" id="avatar-hint">也可以从下面挑一个现成的</p>
+      </div>
+
+      <div class="avatar-scroll" id="avatar-groups"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 文字头像弹层 ==================== -->
+  <div class="sheet-layer is-hidden" id="text-avatar-layer">
+    <div class="sheet sheet--textavatar" role="dialog" aria-modal="true" aria-labelledby="text-avatar-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="text-avatar-title">文字头像</h2>
+        <button type="button" class="sheet__close" id="text-avatar-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="txtav">
+        <div class="txtav__preview-wrap">
+          <span class="txtav__preview" id="text-avatar-preview">字</span>
+        </div>
+
+        <label class="txtav__label" for="text-avatar-input">输入文字</label>
+        <input class="txtav__input" id="text-avatar-input" type="text" maxlength="6"
+               placeholder="输入一个字或昵称" autocomplete="off" />
+
+        <p class="txtav__label">渐变背景</p>
+        <div class="txtav__swatches" id="text-avatar-gradients"></div>
+
+        <p class="txtav__label">纯色背景</p>
+        <div class="txtav__swatches" id="text-avatar-solids"></div>
+
+        <p class="txtav__label">字体</p>
+        <div class="txtav__fonts" id="text-avatar-fonts" role="radiogroup" aria-label="字体">
+          <button type="button" class="txtav__font is-active" data-font="kai" role="radio"
+                  aria-checked="true">楷体</button>
+          <button type="button" class="txtav__font" data-font="oracle" role="radio"
+                  aria-checked="false">甲骨文</button>
+        </div>
+
+        <div class="txtav__acts">
+          <button type="button" class="btn btn--ghost" id="text-avatar-cancel">取消</button>
+          <button type="button" class="btn btn--primary" id="text-avatar-ok">使用这个头像</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 设置弹层 ==================== -->
+  <!-- ==================== 笔记详情 ==================== -->
+  <div class="sheet-layer is-hidden" id="memo-layer">
+    <div class="sheet sheet--memo" role="dialog" aria-modal="true" aria-labelledby="memo-sheet-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="memo-sheet-title">笔记</h2>
+        <span class="memo__stamp" id="memo-stamp">刚刚</span>
+        <button type="button" class="sheet__close" id="memo-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="memofrm">
+        <input class="memo__titleinput" id="memo-title-input" type="text" maxlength="60"
+               placeholder="标题（不写就取正文第一行）" autocomplete="off" />
+        <textarea class="memo__body" id="memo-body-input" rows="9"
+                  placeholder="想到什么就写什么。写完可以让 AI 摘要，或把里面要做的事抽成待办。"></textarea>
+
+        <div class="memo__tools">
+          <!-- 语音输入：复用整屏语音那套原生识别器，结果实时插进正文光标处 -->
+          <button type="button" class="btn btn--ghost btn--sm memo__micbtn" id="memo-voice"
+                  data-state="idle" aria-label="语音输入">
+            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+              <rect x="9" y="2.5" width="6" height="11.5" rx="3" fill="currentColor" />
+              <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"
+                    fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            </svg>
+            <span id="memo-voice-label">语音</span>
+          </button>
+          <button type="button" class="btn btn--ghost btn--sm" id="memo-summarize">AI 摘要</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="memo-struct">整理成文</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="memo-extract">提取待办</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="memo-tags-btn">AI 标签</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="memo-rewrite">AI 改写</button>
+          <button type="button" class="btn btn--sm btn--danger-ghost" id="memo-delete">删除</button>
+        </div>
+        <p class="memo__stat" id="memo-stat" role="status"></p>
+        <div class="memo__ai is-hidden" id="memo-digit-fix" aria-label="语音数字核对">
+          <p id="memo-digit-raw"></p>
+          <p>疑似数字同音字，请核对后采用。正常句子不会自动纠错。</p>
+          <div class="memo__tools">
+            <button type="button" class="btn btn--primary btn--sm" id="memo-digit-adopt">按数字采用</button>
+            <button type="button" class="btn btn--ghost btn--sm is-hidden" id="memo-digit-undo">恢复识别原文</button>
+            <button type="button" class="btn btn--ghost btn--sm" id="memo-digit-dismiss">收起</button>
+          </div>
+        </div>
+
+        <!-- 标签建议：建议只是建议，点了一下才采纳，点 × 整排不要 -->
+        <div class="memo__tagsug is-hidden" id="memo-tagsug" aria-label="标签"></div>
+
+        <!-- 改写两档：仅润色（数字金额期限强制保留）/ 允许扩写，点了才发 -->
+        <div class="memo__rwmodes is-hidden" id="memo-rwmodes" aria-label="改写模式">
+          <span class="memo__rwlabel">选一档：</span>
+          <button type="button" class="memo__rwchip" id="memo-rw-polish">仅润色</button>
+          <button type="button" class="memo__rwchip" id="memo-rw-expand">允许扩写</button>
+          <button type="button" class="memo__tagchip-x" id="memo-rw-no" aria-label="不改了">×</button>
+        </div>
+
+        <!-- AI 结果卡片：与正文分开显示，模型错了也一眼看得出是模型说的 -->
+        <div class="memo__ai is-hidden" id="memo-ai-card">
+          <div class="memo__ai-head">
+            <span class="memo__ai-label" id="memo-ai-label">摘要</span>
+            <span class="memo__ai-badge" id="memo-ai-badge"></span>
+          </div>
+          <p class="memo__ai-body" id="memo-ai-body"></p>
+          <ul class="memo__ai-points" id="memo-ai-points"></ul>
+          <div class="memo__ai-acts">
+            <button type="button" class="memo__ai-again" id="memo-ai-again">重新生成</button>
+            <button type="button" class="memo__ai-hide" id="memo-ai-hide">收起</button>
+          </div>
+        </div>
+
+        <!-- 改写结果：原文 | 改写稿 双列对照（设计文档 M3 验收线：冲突结论并排展示），
+             点「替换正文」才落，原稿留在 derived 里可追溯 -->
+        <div class="memo__rwcard is-hidden" id="memo-rwcard">
+          <div class="memo__ai-head">
+            <span class="memo__ai-label" id="memo-rw-label">改写稿</span>
+            <span class="memo__ai-badge" id="memo-rw-badge"></span>
+          </div>
+          <div class="memo__rwcols">
+            <div class="memo__rwcol">
+              <span class="memo__rwcol-label">原文</span>
+              <p class="memo__rwtext" id="memo-rw-orig"></p>
+            </div>
+            <div class="memo__rwcol">
+              <span class="memo__rwcol-label">改写后</span>
+              <p class="memo__rwtext" id="memo-rw-new"></p>
+            </div>
+          </div>
+          <div class="memo__ai-acts">
+            <button type="button" class="memo__ai-again btn btn--primary" id="memo-rw-adopt">替换正文</button>
+            <button type="button" class="memo__ai-hide" id="memo-rw-drop">丢弃</button>
+          </div>
+        </div>
+
+        <!-- 相关笔记：索引词共现 + 已采纳标签重合，纯本地算，不出网 -->
+        <div class="memo__related is-hidden" id="memo-related">
+          <span class="memo__related-label">相关笔记</span>
+          <div class="memo__related-list" id="memo-related-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 待办草稿确认 ====================
+       模型抽出来的只是草稿，必须逐条勾选再点创建；
+       这也是「模型不能直接改数据」这条边界在界面上的样子。 -->
+  <div class="sheet-layer is-hidden" id="draft-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="draft-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="draft-title">将要创建 0 条待办</h2>
+        <button type="button" class="sheet__close" id="draft-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <p class="draft__note" id="draft-note">时间没写清的先留空，建完还能再改。</p>
+      <ul class="draft__list" id="draft-list"></ul>
+      <p class="draft__stat" id="draft-stat"></p>
+      <div class="draft__acts">
+        <button type="button" class="btn btn--ghost btn--sm" id="draft-cancel">取消</button>
+        <button type="button" class="btn btn--primary btn--sm" id="draft-ok">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 问一问（M2 qa） ====================
+       检索给证据、模型只做组织：每个结论必须标 [n]，
+       点出处跳回原笔记；检索一无所获时直接说没有，不发请求。 -->
+  <div class="sheet-layer is-hidden" id="qa-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="qa-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="qa-title">问一问</h2>
+        <button type="button" class="sheet__close" id="qa-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="qa">
+        <div class="qa__row">
+          <input class="qa__input" id="qa-input" type="text" maxlength="200"
+                 placeholder="在笔记里找：比如「燃气灶师傅几点来」" autocomplete="off" />
+          <button type="button" class="btn btn--primary btn--sm" id="qa-ask">问</button>
+        </div>
+        <p class="qa__hint" id="qa-hint" role="status"></p>
+        <div class="qa__result is-hidden" id="qa-result">
+          <p class="qa__answer" id="qa-answer"></p>
+          <div class="qa__refs" id="qa-refs"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 本周回顾（M3） ====================
+       统计纯本地：新增/更新笔记、完成待办、AI 采纳率、沉淀列表；
+       AI 周评是可选的——只发统计数字、标签和已采纳摘要，不发整篇正文。 -->
+  <div class="sheet-layer is-hidden" id="review-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="review-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="review-title">本周回顾</h2>
+        <button type="button" class="sheet__close" id="review-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="rvw">
+        <div class="rvw__grid" id="rvw-grid"></div>
+        <div class="rvw__tags is-hidden" id="rvw-tags"></div>
+        <div class="rvw__sed is-hidden" id="rvw-sed">
+          <span class="rvw__sed-label">沉淀 · 你采纳过的摘要</span>
+          <ul class="rvw__sedlist" id="rvw-sedlist"></ul>
+        </div>
+        <p class="rvw__hint" id="rvw-hint" role="status"></p>
+        <div class="rvw__ai is-hidden" id="rvw-ai">
+          <p class="rvw__aitext" id="rvw-aitext"></p>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm rvw__aibtn" id="rvw-ai-btn">
+          让 AI 写一段回顾
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-layer is-hidden" id="settings-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="settings-title">设置</h2>
+        <button type="button" class="sheet__close" id="settings-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="setrow">
+        <span class="setrow__main">
+          <span class="setrow__label">到点响铃</span>
+          <span class="setrow__desc">倒计时结束时响铃提醒</span>
+        </span>
+        <button type="button" class="switch" id="ring-toggle" role="switch"
+                aria-checked="true" aria-label="到点响铃"><i></i></button>
+      </div>
+
+      <button type="button" class="setrow setrow--tap" id="ring-row">
+        <span class="setrow__main">
+          <span class="setrow__label">铃声</span>
+          <span class="setrow__desc" id="ring-value">跟随系统默认</span>
+        </span>
+        <svg class="setrow__chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M9.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <div class="setrow setrow--stack">
+        <span class="setrow__main">
+          <span class="setrow__label">主题</span>
+          <span class="setrow__desc" id="theme-desc">白色为主，冷色调</span>
+        </span>
+        <div class="themepick" id="theme-pick" role="radiogroup" aria-label="界面主题">
+          <button type="button" class="themepick__btn" data-mode="light"
+                  role="radio" aria-checked="false">浅色</button>
+          <button type="button" class="themepick__btn" data-mode="dark"
+                  role="radio" aria-checked="false">深色</button>
+          <button type="button" class="themepick__btn" data-mode="macaron"
+                  role="radio" aria-checked="false">马卡龙</button>
+        </div>
+      </div>
+
+      <!-- 语音三处独立设置：待办语音输入 / 笔记语音输入 / 语音助手（发给助手） -->
+      <div class="setrow setrow--stack">
+        <span class="setrow__main">
+          <span class="setrow__label">待办语音输入</span>
+          <span class="setrow__desc" id="voice-todo-desc">本地模型转写，带热词、同音纠错和标点；原生另尝试本机或局域网 AI 纠错</span>
+        </span>
+        <div class="themepick" id="voice-todo-pick" role="radiogroup" aria-label="待办语音输入引擎">
+          <button type="button" class="themepick__btn is-active" data-vt="dict"
+                  role="radio" aria-checked="true">离线转写</button>
+          <button type="button" class="themepick__btn" data-vt="realtime"
+                  role="radio" aria-checked="false">系统识别</button>
+        </div>
+      </div>
+
+      <div class="setrow setrow--stack">
+        <span class="setrow__main">
+          <span class="setrow__label">笔记语音输入</span>
+          <span class="setrow__desc" id="voice-memo-desc">系统实时识别，边说边插到光标处</span>
+        </span>
+        <div class="themepick" id="voice-memo-pick" role="radiogroup" aria-label="笔记语音输入引擎">
+          <button type="button" class="themepick__btn is-active" data-vm="realtime"
+                  role="radio" aria-checked="true">系统识别</button>
+          <button type="button" class="themepick__btn" data-vm="dict"
+                  role="radio" aria-checked="false">离线转写</button>
+        </div>
+      </div>
+
+      <div class="setrow setrow--stack">
+        <label class="setrow__label" for="voice-names">常用人名</label>
+        <span class="setrow__desc" id="voice-names-help">输入姓名的正确写法，用逗号或换行分开。保存后，语音里说「跟某人开会」等内容时会优先采用这些写法。</span>
+        <textarea id="voice-names" rows="4" maxlength="12000" aria-describedby="voice-names-help" placeholder="李娜、欧阳明宇"></textarea>
+        <button type="button" class="themepick__btn" id="import-voice-names">从文本导入</button>
+        <input type="file" id="voice-names-file" accept=".txt,text/plain" hidden>
+        <button type="button" class="themepick__btn" id="save-voice-names">保存常用人名</button>
+        <button type="button" class="themepick__btn" id="open-contact-directory" hidden>联系人与通话</button>
+      </div>
+
+      <div class="setrow setrow--stack">
+        <span class="setrow__main">
+          <span class="setrow__label">语音助手（发给助手）</span>
+          <span class="setrow__desc" id="voice-engine-desc">本地规则理解，反应快、不联网</span>
+        </span>
+        <div class="themepick" id="voice-engine-pick" role="radiogroup" aria-label="语音助手引擎">
+          <button type="button" class="themepick__btn is-active" data-engine="local"
+                  role="radio" aria-checked="true">本地规则</button>
+          <button type="button" class="themepick__btn" data-engine="ollama"
+                  role="radio" aria-checked="false">本地大模型</button>
+          <button type="button" class="themepick__btn" data-engine="llm"
+                  role="radio" aria-checked="false">在线大模型</button>
+        </div>
+      </div>
+
+
+      <!-- 模型库：可以存多份，按任务自动挑或手动指定；选「在线大模型」时才展开 -->
+      <div class="llmcfg is-hidden" id="llm-config">
+
+        <div class="llmrg">
+          <div class="llmrg__head">
+            <span class="llmcfg__label">路由策略</span>
+            <div class="themepick themepick--sm" id="llm-route-pick"
+                 role="radiogroup" aria-label="模型路由策略">
+              <button type="button" class="themepick__btn is-active" data-route="auto"
+                      role="radio" aria-checked="true">自动挑选</button>
+              <button type="button" class="themepick__btn" data-route="manual"
+                      role="radio" aria-checked="false">手动指定</button>
+            </div>
+          </div>
+          <p class="llmrg__desc" id="llm-route-desc"></p>
+        </div>
+
+        <div class="mdl-list" id="llm-model-list"></div>
+
+        <div class="llmcfg__acts llmcfg__acts--split">
+          <button type="button" class="btn btn--ghost btn--sm" id="llm-model-add">+ 添加模型</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="llm-compare-open">模型对比</button>
+        </div>
+
+        <div class="llmcfg__acts">
+          <button type="button" class="btn btn--primary btn--sm" id="llm-status-refresh">试解析一句</button>
+        </div>
+        <p class="llmcfg__status" id="llm-status"></p>
+
+        <!-- 模型目录在线更新：只刷新「可选模型名」，不动已配好的档案 -->
+        <div class="llmupd" id="catalog-box">
+          <div class="llmupd__head">
+            <span class="llmcfg__label">模型目录</span>
+            <span class="llmupd__ver" id="catalog-ver">v0</span>
+          </div>
+          <p class="llmupd__meta" id="catalog-meta">还没拉过，点「检查更新」从各家 /v1/models 取一份最新的</p>
+          <div class="llmupd__bar is-hidden" id="catalog-bar">
+            <i class="llmupd__fill" id="catalog-fill"></i>
+          </div>
+          <div class="llmupd__acts">
+            <button type="button" class="btn btn--ghost btn--sm" id="catalog-check">检查更新</button>
+            <button type="button" class="btn btn--primary btn--sm is-hidden" id="catalog-install">安装更新</button>
+            <button type="button" class="btn btn--ghost btn--sm is-hidden" id="catalog-rollback">回滚</button>
+          </div>
+          <p class="llmupd__log" id="catalog-log"></p>
+        </div>
+
+        <!-- AI 用量与预算：只在本机统计，不上传；超上限只保留最便宜的抽取类 -->
+        <div class="llmupd" id="ai-usage-box">
+          <div class="llmupd__head">
+            <span class="llmcfg__label">今日 AI 用量</span>
+            <span class="llmupd__ver" id="ai-usage-badge">0 次</span>
+          </div>
+          <p class="llmupd__meta" id="ai-usage-meta">还没有调用记录</p>
+          <div class="llmupd__bar" id="ai-usage-bar">
+            <i class="llmupd__fill" id="ai-usage-fill"></i>
+          </div>
+          <div class="llmupd__acts">
+            <button type="button" class="btn btn--ghost btn--sm" id="ai-budget-btn">每日上限 20 万</button>
+            <button type="button" class="btn btn--ghost btn--sm" id="ai-usage-clear">清空统计</button>
+          </div>
+          <p class="llmupd__log" id="ai-usage-log">密钥：读取中…</p>
+        </div>
+
+        <!-- 三档数据范围：判断发生在拼上下文之前，不是发出去以后再说 -->
+        <div class="setrow setrow--stack">
+          <span class="setrow__main">
+            <span class="setrow__label">AI 数据范围</span>
+            <span class="setrow__desc" id="consent-desc">正文发给模型服务商，发送前按脱敏设置处理</span>
+          </span>
+          <div class="consent" id="consent-pick" role="radiogroup" aria-label="AI 数据范围"></div>
+        </div>
+
+        <div class="setrow">
+          <span class="setrow__main">
+            <span class="setrow__label">发送前脱敏</span>
+            <span class="setrow__desc" id="ai-mask-desc">
+              手机号、身份证、银行卡、邮箱先打码再发给模型
+            </span>
+          </span>
+          <button type="button" class="switch" id="ai-mask-toggle" role="switch"
+                  aria-checked="true" aria-label="发送前脱敏"><i></i></button>
+        </div>
+
+        <p class="llmcfg__hint">
+          兼容 OpenAI 接口的服务都能加（DeepSeek / 通义 / Kimi / 智谱 / 自建网关）。
+          密钥由手机的安全芯片加密保存，页面里只留一个引用，不会随账号同步。
+        </p>
+      </div>
+
+      <!-- 功能指引（设置里的入口，随时可以重看） -->
+      <button type="button" class="setrow setrow--tap" id="guide-row">
+        <span class="setrow__main">
+          <span class="setrow__label">功能指引</span>
+          <span class="setrow__desc">新手指南，逐个了解每个功能</span>
+        </span>
+        <svg class="setrow__chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M9.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <!-- 后台提醒保活（仅手机版显示，网页版自动隐藏） -->
+      <div class="setrow setrow--stack" id="battery-row" hidden>
+        <span class="setrow__main">
+          <span class="setrow__label">电池优化</span>
+          <span class="setrow__desc" id="battery-desc">系统可能为省电拦截后台提醒，建议设为不优化</span>
+        </span>
+        <button type="button" class="setrow__btn" id="battery-btn">去设置</button>
+      </div>
+      <div class="setrow setrow--stack" id="autostart-row" hidden>
+        <span class="setrow__main">
+          <span class="setrow__label">自启动</span>
+          <span class="setrow__desc" id="autostart-desc">重启手机后请允许本应用自启动，否则提醒可能收不到</span>
+        </span>
+        <button type="button" class="setrow__btn" id="autostart-btn">去设置</button>
+      </div>
+
+      <p class="sheet__foot" id="settings-foot">铃声取自手机系统自带的铃声，改这里不影响系统设置。</p>
+    </div>
+  </div>
+
+  <!-- ==================== 模型档案编辑 ==================== -->
+  <div class="sheet-layer is-hidden" id="model-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="model-sheet-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="model-sheet-title">添加模型</h2>
+        <button type="button" class="sheet__close" id="model-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="mdlform">
+        <span class="llmcfg__label">服务商</span>
+        <div class="mdlpreset" id="model-presets"></div>
+
+        <div class="llmcfg__field">
+          <label class="llmcfg__label" for="model-name">显示名称</label>
+          <input class="llmcfg__input" id="model-name" type="text"
+                 placeholder="例如 DeepSeek 主力" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="llmcfg__field">
+          <label class="llmcfg__label" for="model-endpoint">API 地址</label>
+          <input class="llmcfg__input" id="model-endpoint" type="url" inputmode="url"
+                 placeholder="https://api.deepseek.com/v1/chat/completions"
+                 autocomplete="off" autocapitalize="off" spellcheck="false" />
+        </div>
+
+        <div class="llmcfg__field">
+          <label class="llmcfg__label" for="model-id">模型名</label>
+          <input class="llmcfg__input" id="model-id" type="text"
+                 placeholder="deepseek-v4-flash / kimi-k3.1-pro / gpt-6.1-sol"
+                 autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <div class="mdlchips is-hidden" id="model-chips"></div>
+          <p class="mdlhint is-hidden" id="model-hint"></p>
+        </div>
+
+        <div class="llmcfg__field">
+          <label class="llmcfg__label" for="model-key">API Key</label>
+          <div class="llmcfg__keyrow">
+            <input class="llmcfg__input" id="model-key" type="password"
+                   placeholder="sk-..." autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <button type="button" class="llmcfg__eye" id="model-key-eye" aria-label="显示密钥"
+                    aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                <path d="M2.6 12S6 5.8 12 5.8 21.4 12 21.4 12 18 18.2 12 18.2 2.6 12 2.6 12z"
+                      fill="none" stroke="currentColor" stroke-width="1.8" />
+                <circle cx="12" cy="12" r="2.9" fill="none" stroke="currentColor" stroke-width="1.8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <span class="llmcfg__label">能力画像（决定自动挑选时谁更合适）</span>
+        <div class="capbox" id="model-caps"></div>
+
+        <div class="mdlprobe">
+          <button type="button" class="btn btn--ghost btn--sm" id="model-probe">检测模型信息</button>
+          <p class="mdlprobe__out" id="model-probe-result"></p>
+        </div>
+
+        <div class="mdlform__acts">
+          <button type="button" class="btn btn--ghost" id="model-cancel">取消</button>
+          <button type="button" class="btn btn--primary" id="model-save">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模型对比 ==================== -->
+  <div class="sheet-layer is-hidden" id="compare-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="compare-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="compare-title">模型对比</h2>
+        <button type="button" class="sheet__close" id="compare-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="cmp">
+        <div class="cmp__tasks" id="compare-tasks" role="radiogroup" aria-label="任务类型"></div>
+        <p class="cmp__taskdesc" id="compare-task-desc"></p>
+
+        <label class="llmcfg__label" for="compare-input">同一段输入，所有模型用同一套提示词</label>
+        <textarea class="cmp__input" id="compare-input" rows="3"
+                  autocomplete="off" spellcheck="false"></textarea>
+        <div class="cmp__inputacts">
+          <button type="button" class="cmp__link" id="compare-sample">填入示例</button>
+          <button type="button" class="cmp__link" id="compare-auto">看看自动会选谁</button>
+        </div>
+        <p class="cmp__hint" id="compare-auto-hint"></p>
+
+        <span class="llmcfg__label">参与对比的模型</span>
+        <div class="cmp__picks" id="compare-models"></div>
+
+        <div class="mdlform__acts">
+          <button type="button" class="btn btn--primary btn--sm" id="compare-run">开始对比</button>
+        </div>
+        <p class="cmp__status" id="compare-status"></p>
+        <div class="cmp__results" id="compare-results"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 语音助手 ====================
+       麦克风识别出的整句话进这里。助手先判意图（建待办 / 完成 / 删除 / 查询 / 闲聊），
+       再动手改待办，并把结果作为一条回执留在对话里；可以继续说下一句。
+       面板样式沿用 .sheet，和「模型对比」「设置」是同一套皮。 -->
+  <div class="sheet-layer is-hidden" id="assistant-layer">
+    <div class="sheet sheet--chat" role="dialog" aria-modal="true" aria-labelledby="assistant-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="assistant-title">语音助手</h2>
+        <button type="button" class="asst__model" id="assistant-model" title="点一下换一个模型">
+          <span class="asst__modeldot" aria-hidden="true"></span>
+          <span class="asst__modelname" id="assistant-model-name">本地规则</span>
+        </button>
+        <button type="button" class="sheet__close" id="assistant-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="asst__log" id="assistant-log" aria-live="polite"></div>
+
+      <div class="asst__quick" id="assistant-quick">
+        <button type="button" class="asst__chip" data-say="明天下午三点开会，记得带上电脑">明天下午三点开会</button>
+        <button type="button" class="asst__chip" data-say="今天还有几件事">今天还有几件事</button>
+        <button type="button" class="asst__chip" data-say="把买牛奶标成做完了">把买牛奶标成做完了</button>
+      </div>
+
+      <form class="asst__bar" id="assistant-form" novalidate>
+        <button type="button" class="asst__mic" id="assistant-mic" aria-label="说一句">
+          <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+            <rect x="9.2" y="3.4" width="5.6" height="10.4" rx="2.8" fill="none"
+                  stroke="currentColor" stroke-width="1.9" />
+            <path d="M6 11.4a6 6 0 0 0 12 0M12 17.4v3.2" fill="none"
+                  stroke="currentColor" stroke-width="1.9" stroke-linecap="round" />
+          </svg>
+        </button>
+        <input class="asst__input" id="assistant-input" type="text" placeholder="说一句话，或直接打字"
+               autocomplete="off" maxlength="300" enterkeyhint="send" aria-label="对助手说话" />
+        <button type="submit" class="asst__send" id="assistant-send" aria-label="发送">
+          <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+            <path d="M4.5 12h14M12.4 5.6L18.8 12l-6.4 6.4" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </form>
+      <p class="asst__hint" id="assistant-hint">助手会直接改你的待办，每一步都能撤销。</p>
+    </div>
+  </div>
+
+  <!-- ==================== 排序弹层 ==================== -->
+  <div class="sheet-layer is-hidden" id="sort-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sort-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="sort-title">排序</h2>
+        <button type="button" class="sheet__close" id="sort-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="sortlist" id="sort-list" role="radiogroup" aria-label="排序方式"></div>
+      <p class="sheet__foot">排序只影响展示顺序，待办与已办各自独立保存。</p>
+    </div>
+  </div>
+
+  <!-- ==================== 铃声弹层 ==================== -->
+  <div class="sheet-layer is-hidden" id="ring-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ring-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="ring-title">铃声</h2>
+        <button type="button" class="sheet__close" id="ring-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <p class="sheet__sub" id="ring-sub">点一下试听，选中的铃声用于「到点了」提醒。</p>
+      <div class="ring-list" id="ring-list"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 账号操作弹层（改密 / 忘密 / 注销） ==================== -->
+  <div class="sheet-layer is-hidden" id="auth-layer">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="auth-sheet-title">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="auth-sheet-title">账号</h2>
+        <button type="button" class="sheet__close" id="auth-sheet-close" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor"
+                  stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <p class="sheet__sub" id="auth-sheet-sub"></p>
+      <div class="sheet__form" id="auth-sheet-body"></div>
+      <div class="sheet__actions" id="auth-sheet-actions"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 头像裁切（相册选图后） ==================== -->
+  <div class="crop-layer is-hidden" id="crop-layer">
+    <div class="crop" role="dialog" aria-modal="true" aria-label="裁切头像">
+      <p class="crop__title">拖动图片，把主体放进圆圈</p>
+      <div class="crop__stage" id="crop-stage">
+        <img class="crop__img" id="crop-img" alt="待裁切的头像" />
+        <span class="crop__mask" aria-hidden="true"></span>
+      </div>
+      <div class="crop__zoom">
+        <span class="crop__zoom-label">缩放</span>
+        <input type="range" id="crop-zoom" min="100" max="320" value="100"
+               aria-label="缩放图片" />
+      </div>
+      <div class="crop__actions">
+        <button type="button" class="btn btn--ghost" id="crop-cancel">取消</button>
+        <button type="button" class="btn btn--primary" id="crop-ok">使用</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="reminder-layer" id="reminder-layer" aria-live="assertive"></div>
+
+  <!-- ==================== 语音输入浮层 ====================
+       自己接管麦克风（不走系统识别界面），所以能画成什么样就什么样，
+       并且随时可以点「取消」把录音停掉。 -->
+  <!-- 语音输入：整屏只有一个界面
+       以前这里是一张底部小卡，上面还压着系统识别器自己的「正在倾听 / 说完了」
+       对话框，两个界面叠着，按钮互相挡。现在识别器的状态、临时结果、音量、
+       结束与取消全部收进这一屏，系统那边不再弹任何东西。 -->
+  <div class="voicelayer is-hidden" id="voice-layer">
+    <section class="vox" role="dialog" aria-modal="true" aria-labelledby="voice-title">
+      <!-- v4 顶栏：徽标 + 计时（退出挪到底部主行） -->
+      <header class="vox__head">
+        <span class="vox__badge"><i class="vox__dot" aria-hidden="true"></i><span id="voice-badge">语音输入</span></span>
+        <p class="vox__timer" id="voice-timer">00:00</p>
+        <span class="vox__headpad" aria-hidden="true"></span>
+      </header>
+
+      <h2 class="vox__title" id="voice-title">正在聆听</h2>
+      <p class="vox__sub" id="voice-sub">把想做的事，轻声说出来</p>
+
+      <!-- v4 大输入框常驻：识别文字直接进来，随时打字改字（无额外输入行/对话框） -->
+      <div class="vox__live" id="vox-live">
+        <textarea class="vox__edit" id="voice-edit" rows="6"
+                  placeholder="点麦克风说话，文字自动出现在这里&#10;也可以随时直接打字"
+                  aria-label="识别文字，可直接修改"></textarea>
+        <p class="vox__text is-hidden" id="voice-live"></p>
+        <p class="vox__ph is-hidden" id="voice-ph">比如「明天下午三点给客户回电话」</p>
+      </div>
+
+      <div class="vox__wave" id="voice-wave" aria-hidden="true"></div>
+
+      <!-- 转写快捷操作，窄屏自动换行 -->
+      <div class="vox__quick" id="voice-quick">
+        <button type="button" class="vox__more" id="voice-to-message">用于消息</button>
+        <button type="button" class="vox__more is-hidden" id="voice-more" aria-label="继续说">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <rect x="9" y="2.5" width="6" height="11.5" rx="3" fill="currentColor" />
+            <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"
+                  fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          </svg>
+          <span>继续</span>
+        </button>
+        <button type="button" class="vox__alt" id="voice-to-memo">＋ 笔记</button>
+        <button type="button" class="vox__addtodo" id="voice-to-todo" aria-label="存入待办输入框">
+          <span class="vox__plus" aria-hidden="true">＋</span>
+          <span>待办</span>
+        </button>
+        <button type="button" class="vox__alt" id="voice-export" aria-label="复制全文">📄 导出</button>
+      </div>
+
+      <!-- 密钥行/打字补充行：DOM 保留（JS 仍引用），v4 布局下永久隐藏 -->
+      <div class="vox__keyrow is-hidden" id="voice-dictate-key">
+        <input class="vox__keyinput" id="voice-dictate-key-input" type="password"
+               placeholder="粘贴硅基流动 API Key（cloud.siliconflow.cn 免费注册）"
+               autocomplete="off" />
+        <button type="button" class="vox__more" id="voice-dictate-key-save">保存并开始</button>
+      </div>
+      <div class="vox__keyrow is-hidden" id="voice-dict-type">
+        <input class="vox__keyinput" id="voice-dict-type-input" type="text"
+               placeholder="打字补充（不影响录音）" autocomplete="off" />
+        <button type="button" class="vox__more" id="voice-dict-type-add">插入</button>
+      </div>
+
+      <!-- v4 底部主行（同一水平线）：✕ 退出 ｜ 结束录音/发送给助手 ｜ 转写 -->
+      <div class="vox__bottom">
+        <button type="button" class="vox__close" id="voice-cancel" aria-label="取消语音输入">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor"
+                  stroke-width="2.2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button type="button" class="vox__stop" id="voice-stop" aria-label="结束录音">
+          <span class="vox__stopicon" aria-hidden="true"></span>
+          <span class="vox__spin" aria-hidden="true"></span>
+          <span class="vox__stoplabel" id="voice-stoplabel">结束录音</span>
+        </button>
+        <button type="button" class="vox__mode" id="voice-dictate" aria-pressed="false"
+                title="切换：录音转写（不限时长，说完由大模型转成文字）">转写</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ==================== 附件来源选择 ==================== -->
+  <div class="attachsrc-layer is-hidden" id="attach-src-layer" role="dialog" aria-modal="true" aria-label="添加附件">
+    <div class="attachsrc__sheet">
+      <p class="attachsrc__title">添加附件</p>
+      <div class="attachsrc__grid">
+        <button type="button" class="attachsrc__item" id="attach-src-draw" data-src="draw">
+          <span class="attachsrc__icon" style="background:#fdeee6;color:#f55b23;">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path d="M5 19l1.4-4.5L16.6 4.3a2 2 0 0 1 2.8 2.8L9.2 17.4 5 19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="attachsrc__label">手绘</span>
+        </button>
+        <button type="button" class="attachsrc__item" id="attach-src-scan" data-src="scan">
+          <span class="attachsrc__icon" style="background:#e7f4f4;color:#0e8a8a;">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path d="M5 4h14M5 20h14M7 8v8h10V8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M7 12h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="attachsrc__label">扫描</span>
+        </button>
+        <button type="button" class="attachsrc__item" id="attach-src-camera" data-src="camera">
+          <span class="attachsrc__icon" style="background:#e8f2fd;color:#4f6ef7;">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path d="M4 8h3l2-2h6l2 2h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+            </svg>
+          </span>
+          <span class="attachsrc__label">拍照</span>
+        </button>
+        <button type="button" class="attachsrc__item" id="attach-src-gallery" data-src="gallery">
+          <span class="attachsrc__icon" style="background:#e9f7ee;color:#2e9e5b;">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+              <path d="M5 17l4.5-4.5 3 3 2.5-2.5 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="attachsrc__label">相册</span>
+        </button>
+        <button type="button" class="attachsrc__item" id="attach-src-audio" data-src="audio">
+          <span class="attachsrc__icon" style="background:#fdeef7;color:#b06ae0;">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <rect x="9" y="4" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path d="M6 11.5a6 6 0 0 0 12 0M12 17.5v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="attachsrc__label">录音</span>
+        </button>
+        <button type="button" class="attachsrc__item" id="attach-src-file" data-src="file">
+          <span class="attachsrc__icon" style="background:#f2f3f7;color:#5a6072;">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+              <path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="attachsrc__label">文件</span>
+        </button>
+      </div>
+      <button type="button" class="attachsrc__cancel" id="attach-src-cancel">取消</button>
+    </div>
+  </div>
+
+  <!-- ==================== 扫描预览（拍照 → 边缘检测 → 矫正 → 增强 的成品） ==================== -->
+  <div class="scan-layer is-hidden" id="scan-layer" role="dialog" aria-modal="true" aria-label="扫描文档">
+    <div class="scan__sheet">
+      <p class="scan__title">扫描文档 <span class="scan__quadtag is-hidden" id="scan-quadtag">已识别边框</span></p>
+      <div class="scan__stage">
+        <img id="scan-img" class="scan__img" alt="扫描结果" />
+        <div class="scan__loading is-hidden" id="scan-loading"><span>正在处理…</span></div>
+      </div>
+      <div class="scan__modes" id="scan-modes" role="group" aria-label="增强模式">
+        <button type="button" class="scan__mode is-active" data-mode="color">彩色增强</button>
+        <button type="button" class="scan__mode" data-mode="gray">灰度</button>
+        <button type="button" class="scan__mode" data-mode="bw">黑白文档</button>
+      </div>
+      <div class="scan__ocr">
+        <div class="scan__ocrbar">
+          <button type="button" class="btn btn--ghost btn--sm" id="scan-ocr">提取文字</button>
+          <button type="button" class="btn btn--ghost btn--sm is-hidden" id="scan-ocr-copy">复制全文</button>
+        </div>
+        <textarea id="scan-ocr-text" class="scan__ocrtext is-hidden" readonly
+          placeholder="识别出的文字会显示在这里，可复制"></textarea>
+      </div>
+      <div class="scan__acts">
+        <button type="button" class="btn btn--ghost btn--sm" id="scan-retake">重拍</button>
+        <button type="button" class="btn btn--sm btn--primary" id="scan-save">存入附件</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 手绘画板 ==================== -->
+  <div class="draw-layer is-hidden" id="draw-layer" role="dialog" aria-modal="true" aria-label="手绘">
+    <div class="draw__toolbar">
+      <div class="draw__colors" id="draw-colors" role="group" aria-label="颜色">
+        <button type="button" class="draw__swatch is-active" data-color="#f55b23" aria-label="橙色" aria-pressed="true"></button>
+        <button type="button" class="draw__swatch" data-color="#26282f" aria-label="黑色" aria-pressed="false"></button>
+        <button type="button" class="draw__swatch" data-color="#4f6ef7" aria-label="蓝色" aria-pressed="false"></button>
+        <button type="button" class="draw__swatch" data-color="#2e9e5b" aria-label="绿色" aria-pressed="false"></button>
+        <button type="button" class="draw__swatch" data-color="#e23b3b" aria-label="红色" aria-pressed="false"></button>
+        <button type="button" class="draw__swatch" data-color="#b06ae0" aria-label="紫色" aria-pressed="false"></button>
+      </div>
+      <div class="draw__sizes" id="draw-sizes" role="group" aria-label="粗细">
+        <button type="button" class="draw__size" data-size="3" aria-label="细" aria-pressed="false"></button>
+        <button type="button" class="draw__size is-active" data-size="6" aria-label="中" aria-pressed="true"></button>
+        <button type="button" class="draw__size" data-size="12" aria-label="粗" aria-pressed="false"></button>
+      </div>
+      <button type="button" class="draw__tool" id="draw-undo" aria-label="撤销">撤销</button>
+      <button type="button" class="draw__tool" id="draw-clear" aria-label="清空">清空</button>
+    </div>
+    <div class="draw__stage" id="draw-stage">
+      <canvas class="draw__canvas" id="draw-canvas" aria-label="绘画区域"></canvas>
+    </div>
+    <div class="draw__actions">
+      <button type="button" class="btn btn--ghost" id="draw-cancel">取消</button>
+      <button type="button" class="btn btn--primary" id="draw-done">完成</button>
+    </div>
+  </div>
+
+  <!-- ==================== 附件预览 ==================== -->
+  <div class="attachpreview-layer is-hidden" id="attach-preview-layer" role="dialog" aria-modal="true" aria-label="附件预览">
+    <div class="attachpreview__card">
+      <button type="button" class="attachpreview__close" id="attach-preview-close" aria-label="关闭">×</button>
+      <div class="attachpreview__body">
+        <img class="attachpreview__img" id="attach-preview-img" alt="" />
+        <p class="attachpreview__label" id="attach-preview-label"></p>
+        <button type="button" class="btn btn--ghost btn--sm is-hidden"
+                id="attach-preview-stt">提取文字</button>
+        <div class="attachpreview__ocr is-hidden" id="attach-preview-ocr">
+          <div class="attachpreview__ocrbar">
+            <span>识别文字</span>
+            <button type="button" class="btn btn--ghost btn--sm" id="attach-preview-copy">复制</button>
+          </div>
+          <pre class="attachpreview__ocrtext" id="attach-preview-ocrtext"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 功能指引（引导教学） ==================== -->
+  <div class="guide-layer is-hidden" id="guide-layer" role="dialog" aria-modal="true" aria-label="功能指引">
+    <div class="guide__pager" id="guide-pager"><!-- 引导图 + 文案，JS 渲染 --></div>
+    <div class="guide__dots" id="guide-dots" aria-hidden="true"></div>
+    <div class="guide__actions">
+      <button type="button" class="guide__skip" id="guide-skip">跳过</button>
+      <button type="button" class="guide__prev btn" id="guide-prev" aria-label="上一页功能指引">上一步</button>
+      <button type="button" class="guide__next btn btn--primary" id="guide-next">下一步</button>
+    </div>
+  </div>
+
+  <script src="js/storage.js?v=1073"></script>
+  <script src="js/native.js?v=1073"></script>
+  <script src="js/keyvault.js?v=1073"></script>
+  <script src="js/auth.js?v=1073"></script>
+  <script src="js/avatars.js?v=1073"></script>
+  <!-- AI 框架层（M0）：计量 → 脱敏 → 出口 → 迁移，app.js 只用它们的公开接口 -->
+  <script src="js/ai/usage.js?v=1073"></script>
+  <script src="js/ai/safety.js?v=1073"></script>
+  <script src="js/ai/consent.js?v=1073"></script>
+  <script src="js/ai/gateway.js?v=1073"></script>
+  <script src="js/ai/tasks.js?v=1073"></script>
+  <script src="js/data/migrate.js?v=1073"></script>
+  <script src="js/data/db.js?v=1073"></script>
+  <script src="js/data/sqlrepo.js?v=1073"></script>
+  <script src="js/domain/memo.js?v=1073"></script>
+  <script src="js/domain/derived.js?v=1073"></script>
+  <script src="js/domain/indexer.js?v=1073"></script>
+  <script src="js/domain/search.js?v=1073"></script>
+  <script src="js/domain/links.js?v=1073"></script>
+  <script src="js/domain/stats.js?v=1073"></script>
+  <script src="js/guide-v2.js?v=20261026"></script>
+  <script src="js/name-pinyin.js?v=1"></script>
+  <dialog id="message-workbench" aria-labelledby="message-workbench-title">
+    <header><h2 id="message-workbench-title">消息提醒与词库</h2><button id="close-message-workbench" type="button">关闭</button></header>
+    <div class="message-actions" aria-label="工作台页面">
+      <button id="workbench-messages-tab" type="button" aria-pressed="true" aria-controls="message-pane">消息提醒</button>
+      <button id="workbench-library-tab" type="button" aria-pressed="false" aria-controls="word-library">本地词库</button>
+    </div>
+    <div id="message-pane">
+    <section aria-labelledby="message-compose-title">
+      <h3 id="message-compose-title">准备消息</h3>
+      <label>平台 <select id="message-platform"><option value="wechat">微信</option><option value="qq">QQ</option></select></label>
+      <label>好友备注 <input id="message-recipient" maxlength="60" placeholder="发送时在客户端核对"></label>
+      <label>提醒时间 <input id="message-when" type="datetime-local"></label>
+      <label>文字内容 <textarea id="message-text" rows="3" maxlength="4000"></textarea></label>
+      <div class="message-actions">
+        <button id="message-dictate" type="button">说话转文字</button>
+        <button id="message-record" type="button">录制语音</button>
+        <button id="message-record-share" type="button" hidden>停止并打开分享</button>
+        <button id="message-drop-audio" type="button" hidden>移除录音</button>
+      </div>
+      <audio id="message-audio" controls hidden></audio>
+      <div class="message-actions">
+        <button id="message-schedule" type="button">保存定时提醒</button>
+        <button id="message-share" type="button">现在打开分享</button>
+        <button id="message-desktop" type="button" hidden>交给电脑排队</button>
+        <button id="message-desktop-audio" type="button" hidden>交给电脑排队录音</button>
+      </div>
+      <div id="message-desktop-pairing" hidden>
+        <label>电脑配对码 <input id="message-desktop-code" type="password" maxlength="32" autocomplete="off" spellcheck="false"></label>
+        <button id="message-desktop-self" type="button">填入当前平台的自用会话</button>
+        <p id="message-desktop-audio-state" aria-live="polite">尚无录音</p>
+      </div>
+      <p>到点提醒你发送。录音作为文件分享，在 QQ 或微信里选择好友并确认。</p>
+    </section>
+    <section aria-labelledby="message-queue-title">
+      <h3 id="message-queue-title">待发送提醒</h3>
+      <ul id="message-queue"></ul>
+    </section>
+    </div>
+    <section id="word-library" hidden aria-labelledby="word-library-title">
+      <h3 id="word-library-title">本地词汇库</h3>
+      <details>
+        <summary>添加词条</summary>
+        <label>分类 <select id="word-kind"><option>人名</option><option>地名</option><option>数字</option><option>时间</option><option>句子</option></select></label>
+        <label>普通话写法或完整句子 <textarea id="word-standard" rows="2" maxlength="500"></textarea></label>
+        <label>我的读法或识别结果 <textarea id="word-spoken" rows="2" maxlength="500"></textarea></label>
+        <label>用法或例句 <textarea id="word-example" rows="2" maxlength="500"></textarea></label>
+        <button id="word-save" type="button">保存词条</button>
+      </details>
+      <details>
+        <summary>批量导入人名</summary>
+        <label>粘贴姓名 <textarea id="word-names-text" rows="3" maxlength="65536" placeholder="每行一个姓名，也可用顿号或逗号分隔"></textarea></label>
+        <div class="message-actions">
+          <button id="word-import-names" type="button">导入姓名</button>
+          <label class="word-file">从 UTF-8 文本导入 <input id="word-names-file" type="file" accept=".txt,text/plain"></label>
+        </div>
+      </details>
+      <details>
+        <summary>联系人与通话记录</summary>
+        <div class="message-actions">
+          <button id="word-open-contacts" type="button">管理联系人</button>
+          <button id="word-sync-directory" type="button">同步到当前账号词库</button>
+        </div>
+        <p>同步已确认的手机联系人、已导入的 QQ／微信名单，以及通过联系人页打开拨号盘或客户端的记录。</p>
+        <label>导入通话记录 <input id="word-calls-file" type="file" accept=".tsv,.txt,text/tab-separated-values,text/plain" aria-describedby="word-calls-format"></label>
+        <p id="word-calls-format">UTF-8 文本，每行四列，用 Tab 分隔。格式为「时间、联系人、平台、结果」，例如 2026-11-25 18:30、张三、手机、已接通。平台可用手机、QQ 或微信。</p>
+      </details>
+      <label>查词 <input id="word-search" type="search" placeholder="按写法、读法、例句或分类搜索"></label>
+      <label>范围 <select id="word-filter"><option value="all">全部</option><option value="人名">人名</option><option value="词句">词句</option><option value="联系人">联系人</option><option value="通话记录">通话记录</option></select></label>
+      <p id="word-status" role="status" aria-live="polite"></p>
+      <ul id="word-list"></ul>
+      <button id="word-more-results" type="button" hidden>显示更多</button>
+    </section>
+    <p id="message-status" role="status" aria-live="polite"></p>
+  </dialog>
+  <script src="js/message-workbench.js?v=2"></script>
+  <script src="js/app.js?v=20261125-messages"></script>
+</body>
+</html>

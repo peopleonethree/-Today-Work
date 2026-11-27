@@ -2,7 +2,7 @@
 //   node build.mjs            → 产出优化版（styles.css / app.js / index.html）
 //   node build.mjs --base     → 还原成原始版，用于对照测试
 // 只读 orig/，只写 assets/，不碰 G:/About。
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +53,32 @@ const matchEol = (target, text) => toEol(text, eolOf(target));
 // index.html 重排选项行时用（插入的行要和目标文件行尾一致）
 const EOL = eolOf('index.html');
 
+/* 静态资源：assets/ 是生成物、不入库，全新克隆里只有本脚本写出的那几个文件，
+   而 index.html 还引用 js/storage.js、js/ai/*、js/data/*、message-workbench.css 等，
+   缺一个就是 404、页面起不来。这里先把基线 assets/ 整树复制过来（保留 js/ai、js/data 等
+   子目录结构，按字节复制，不经过编码转换），再由下面的代码写出本层产出的文件覆盖同名项。
+   基线位置默认取仓库里的 voice-session-fix-20261026/assets，可用 UI_BASE_ASSETS 覆盖。 */
+const BASE_ASSETS = process.env.UI_BASE_ASSETS || join(ROOT, '..', '..', 'voice-session-fix-20261026', 'assets');
+/* 这几个由构建产出，复制阶段直接跳过（避免先拷旧字节再覆盖的无谓写入） */
+const GENERATED = new Set(['styles.css', 'index.html', 'message-workbench.css', join('js', 'app.js')]);
+let copied = 0;
+
+function copyStatic(dir, rel = '') {
+  for (const ent of readdirSync(dir, { withFileTypes: true })) {
+    const relPath = rel ? join(rel, ent.name) : ent.name;
+    const src = join(dir, ent.name);
+    if (ent.isDirectory()) { copyStatic(src, relPath); continue; }
+    if (GENERATED.has(relPath)) continue;
+    const dst = join(ROOT, 'assets', relPath);
+    mkdirSync(dirname(dst), { recursive: true });
+    copyFileSync(src, dst);
+    copied++;
+  }
+}
+
+must(existsSync(BASE_ASSETS), `基线资源目录不存在：${BASE_ASSETS}（可用 UI_BASE_ASSETS 指定）`);
+copyStatic(BASE_ASSETS);
+
 
 function moveOptions(html) {
   // 1) 「消息提醒与词库」从独占一行，挪到选项行右端
@@ -88,7 +114,8 @@ if (process.argv.includes('--base')) {
   out('styles.css', orig('styles.css'));
   out(join('js', 'app.js'), orig('app.js'));
   out('index.html', orig('index.html'));
-  console.log('已还原为原始版');
+  out('message-workbench.css', orig('message-workbench.css'));
+  console.log('已还原为原始版（静态资源 %d 个已就位）', copied);
 } else {
   const cssEol = eolOf('styles.css');
   let css = orig('styles.css');
@@ -123,11 +150,20 @@ if (process.argv.includes('--base')) {
   const jsEol = eolOf('app.js');
   let js = orig('app.js');
   if (!js.endsWith(jsEol)) js += jsEol;
-  if (!process.env.UI_NOJS) out(join('js', 'app.js'), js + matchEol('app.js', patch('kb-stable.js')));
-  else out(join('js', 'app.js'), js);
+  /* 补丁按顺序拼接：键盘稳定层在前，粘贴导入在后（后者只挂自己的按钮与 dialog，互不依赖） */
+  const jsPatches = ['kb-stable.js', 'paste-import.js'];
+  if (!process.env.UI_NOJS) {
+    out(join('js', 'app.js'), js + jsPatches.map((name) => matchEol('app.js', patch(name))).join(''));
+  } else {
+    out(join('js', 'app.js'), js);
+  }
   execFileSync(process.execPath, ['--check', join(ROOT, 'assets', 'js', 'app.js')], { stdio: 'inherit' });
 
   out('index.html', moveOptions(orig('index.html')));
-  console.log('已产出优化版（styles.css +%d 行，app.js +%d 行，index.html 已调整选项行）',
-    ui.split('\n').length, patch('kb-stable.js').split('\n').length);
+  // 消息工作台样式本层不改，但要跟着产物一起就位（orig/ 是冻结原件，原样写出）
+  out('message-workbench.css', orig('message-workbench.css'));
+  console.log('已产出优化版（styles.css +%d 行，app.js +%d 行，index.html 已调整选项行，静态资源 %d 个已就位）',
+    ui.split('\n').length,
+    jsPatches.reduce((n, name) => n + patch(name).split('\n').length, 0),
+    copied);
 }

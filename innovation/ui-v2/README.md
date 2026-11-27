@@ -29,12 +29,18 @@
 
 ```bash
 cd innovation/ui-v2
-node build.mjs                 # orig + patches → assets/
-sha256sum -c assets.sha256     # 三项必须全部 OK
-node verify-expand.mjs         # :is() 展开一致性，应为「不一致 0」
+node build.mjs                                # orig + patches + 基线静态资源 → assets/
+(cd assets && sha256sum -c ../assets.sha256)  # 三项必须全部 OK
+node verify-expand.mjs                        # :is() 展开一致性，应为「不一致 0」
 ```
 
-`assets/` 是生成物，不入库；比对 `assets.sha256` 即知字节是否正确。
+`assets/` 是生成物，不入库；比对 `assets.sha256` 即知字节是否正确。清单里的路径是相对 `assets/`
+的，所以校验要在 `assets/` 里跑（或写成 `cd assets && sha256sum -c ../assets.sha256`）。
+
+脚本会先把基线 `voice-session-fix-20261026/assets/` 整树按字节复制进 `assets/`，再覆盖其中
+4 个由本层产出的文件，因此全新克隆里直接构建就能得到完整可跑的 `assets/`（`index.html` 引用的
+`js/storage.js`、`js/ai/*`、`message-workbench.css` 等都在）。基线路径可用 `UI_BASE_ASSETS`
+指到别处。
 
 ### 历史 tag 的行尾（本机规则）
 
@@ -70,7 +76,8 @@ e6e9184a991de1d7… *index.html
 | `orig/` | `v1.0.68` 的冻结前端原件，**不要改**；改它等于改基线 |
 | `patches/ui-v2.css` | 视觉层全部 CSS，追加到 `styles.css` 末尾 |
 | `patches/kb-stable.js` | 键盘避让 + 换主题标记，追加到 `app.js` 末尾 |
-| `build.mjs` | 拼接 + `:is()` 展开；`--base` 可还原为原件 |
+| `patches/paste-import.js` | 设置页「粘贴昵称」导入（补 `kb-stable.js` 之后，追加到 `app.js` 末尾） |
+| `build.mjs` | 复制基线静态资源 + 拼接 + `:is()` 展开；`--base` 可还原为原件 |
 | `verify-expand.mjs` | 校验展开后的选择器与源一致 |
 | `stress.mjs` | 压力测试（场景化：切页、换主题、时光胶囊、滚动…） |
 | `themecheck.mjs` | 换主题专项：单次时延、连点掉点、真实触屏命中（`--unfix` 可注入旧规则做对照） |

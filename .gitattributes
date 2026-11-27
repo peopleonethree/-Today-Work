@@ -1,0 +1,6 @@
+# 前端资源必须逐字节可复现：网页里引用的行尾不能随 core.autocrlf 变化。
+# styles.css / index.html 是 LF，app.js 是 CRLF（与装机版 assets.sha256 一致）。
+# 改动这三个文件的行尾会让 APK 里的资源哈希对不上，请不要删掉这几行。
+voice-session-fix-20261026/assets/styles.css  text eol=lf
+voice-session-fix-20261026/assets/index.html  text eol=lf
+voice-session-fix-20261026/assets/js/app.js   text eol=crlf

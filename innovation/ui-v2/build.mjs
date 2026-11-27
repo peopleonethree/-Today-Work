@@ -8,8 +8,38 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { expandIs } from './lib/css-expand.mjs';
 
+const must = (cond, message) => { if (!cond) throw new Error(message); };
+
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
-const orig = (name) => readFileSync(join(ROOT, 'orig', name), 'utf8');
+
+/* 行尾必须以「装机字节」为准，不能跟随检出结果。
+   踩过的坑：core.autocrlf、GitHub 归档包、编辑器保存都可能改掉 orig/ 的行尾，
+   而旧实现用 eolOf() 把「检出时的行尾」当真值、悄悄照着产，
+   结果整条产物哈希漂移，却只有末端的 sha256sum -c 能发现，离根因已经很远。
+   这里按 .gitattributes 同源的常量钉死：styles.css / index.html 是 LF，app.js 是 CRLF。 */
+const CANON_EOL = { 'styles.css': '\n', 'index.html': '\n', 'message-workbench.css': '\n', 'app.js': '\r\n' };
+const warned = new Set();
+const eolOf = (name) => {
+  const eol = CANON_EOL[name];
+  must(eol, `未知文件 ${name}：请先在 build.mjs 的 CANON_EOL 里登记它的行尾`);
+  return eol;
+};
+// 统一行尾：先把 CRLF 和孤立 CR 都归一成 LF，再按目标行尾重写（混合行尾也能收敛）
+const toEol = (text, eol) => text.replace(/\r\n?/g, '\n').replace(/\n/g, eol);
+const orig = (name) => {
+  const raw = readFileSync(join(ROOT, 'orig', name), 'utf8');
+  const eol = eolOf(name);
+  const crlf = (raw.match(/\r\n/g) || []).length;
+  const loneLf = (raw.match(/\n/g) || []).length - crlf;
+  const loneCr = (raw.match(/\r(?!\n)/g) || []).length; // 老 Mac 风格的孤立 CR
+  const off = eol === '\n' ? crlf > 0 || loneCr > 0 : loneLf > 0 || crlf === 0;
+  if (off && !warned.has(name)) {
+    warned.add(name);
+    console.warn('[warn] orig/%s 的行尾不是预期值（%s），多半是 core.autocrlf 或归档工具改的；已按规范行尾归一，产物仍可复现',
+      name, eol === '\n' ? 'LF' : 'CRLF');
+  }
+  return toEol(raw, eol);
+};
 const patch = (name) => readFileSync(join(ROOT, 'patches', name), 'utf8');
 // 全新克隆里没有 assets/（生成物不入库），写出前按需建目录
 const out = (name, text) => {
@@ -17,13 +47,11 @@ const out = (name, text) => {
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, text);
 };
-// 行尾跟随各自的目标文件（实测：styles.css / index.html 是 LF，app.js 是 CRLF），不能用一个全局值
-const eolOf = (name) => (orig(name).includes('\r\n') ? '\r\n' : '\n');
-const matchEol = (target, text) => text.replace(/\r?\n/g, eolOf(target));
+// 补丁块按目标文件的行尾重写；目标行尾来自 CANON_EOL，不来自检出
+const matchEol = (target, text) => toEol(text, eolOf(target));
 
-// index.html 重排选项行时用（插入的行要和原文行尾一致）
-const EOL = orig('index.html').includes('\r\n') ? '\r\n' : '\n';
-const must = (cond, message) => { if (!cond) throw new Error(message); };
+// index.html 重排选项行时用（插入的行要和目标文件行尾一致）
+const EOL = eolOf('index.html');
 
 
 function moveOptions(html) {

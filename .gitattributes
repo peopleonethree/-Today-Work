@@ -13,6 +13,7 @@ innovation/ui-v2/orig/app.js                text eol=crlf
 innovation/ui-v2/patches/ui-v2.css          text eol=lf
 innovation/ui-v2/patches/kb-stable.js       text eol=lf
 innovation/ui-v2/patches/paste-import.js    text eol=lf
+innovation/ui-v2/patches/voice-archive.js   text eol=lf
 innovation/ui-v2/assets.sha256              text eol=lf
 # 本机规则的副本：它要被原样 cp 到 .git/info/attributes，行尾一旦变成 CRLF，规则就失效了。
 innovation/ui-v2/git-attributes.local       text eol=lf

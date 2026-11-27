@@ -77,6 +77,8 @@ e6e9184a991de1d7… *index.html
 | `patches/ui-v2.css` | 视觉层全部 CSS，追加到 `styles.css` 末尾 |
 | `patches/kb-stable.js` | 键盘避让 + 换主题标记，追加到 `app.js` 末尾 |
 | `patches/paste-import.js` | 设置页「粘贴昵称」导入（补 `kb-stable.js` 之后，追加到 `app.js` 末尾） |
+| `patches/voice-archive.js` | 常用词档案库：建档 / 检索 / 纠错 / 纠正沉淀，设计见《常用词档案-设计说明.md》 |
+| `tools/` | 档案库专项测试：引擎单测（`test-voice-archive.mjs`）+ 桌面 UI 回归（`test-voice-archive-ui.mjs`） |
 | `build.mjs` | 复制基线静态资源 + 拼接 + `:is()` 展开；`--base` 可还原为原件 |
 | `verify-expand.mjs` | 校验展开后的选择器与源一致 |
 | `stress.mjs` | 压力测试（场景化：切页、换主题、时光胶囊、滚动…） |

@@ -150,8 +150,8 @@ if (process.argv.includes('--base')) {
   const jsEol = eolOf('app.js');
   let js = orig('app.js');
   if (!js.endsWith(jsEol)) js += jsEol;
-  /* 补丁按顺序拼接：键盘稳定层在前，粘贴导入在后（后者只挂自己的按钮与 dialog，互不依赖） */
-  const jsPatches = ['kb-stable.js', 'paste-import.js'];
+  /* 补丁按顺序拼接：键盘稳定层 → 粘贴导入 → 常用词档案（互不依赖，各挂各的） */
+  const jsPatches = ['kb-stable.js', 'paste-import.js', 'voice-archive.js'];
   if (!process.env.UI_NOJS) {
     out(join('js', 'app.js'), js + jsPatches.map((name) => matchEol('app.js', patch(name))).join(''));
   } else {

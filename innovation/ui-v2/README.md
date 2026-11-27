@@ -83,11 +83,15 @@ e6e9184a991de1d7… *index.html
 
 体积大或与本机绑定的，都在 `.gitignore` 里：`assets/`（生成物）、`profile/`（浏览器配置）、
 `results/`、`shots/`、`install/`（APK 与中间文件，`*.apk` 全局忽略）。安装包不入库，
-需要时用 `python install/pack.py <后缀>` 以 `v1.0.68` 原包为底重打。
+需要时用 `python install/pack.py <后缀>` 以 `install/base.apk`（或从手机拉取的当前包）为底重打；
+签名与证书闸门见脚本头部注释，换钥匙要显式加 `--allow-cert-change`。
 
 ## 回退
 
 创新版本不碰 `v1.0.68` 的内容，回退有两条路：
 
 - 源码层：`git switch main` 或 `git checkout v1.0.68`。
-- 手机层：`adb install -r` 原版 APK 覆盖即可，`versionCode` 始终是 69，不用卸载、不丢数据。
+- 手机层：`versionCode` 始终是 69，正常迭代 `adb install -r` 覆盖即可、不丢数据。
+  **但注意签名**：2026-11-27 起装机包改用 `todaytodo.jks`（`208d51e3…`）签名，
+  用旧钥匙 `dac1e506…` 签的 `v1.0.68` 原包已无法覆盖（`INSTALL_FAILED_UPDATE_INCOMPATIBLE`），
+  要回退到旧签名必须先用 `pm uninstall`（会清空数据），或先把目标包用同一把钥匙重签再 `-r`。

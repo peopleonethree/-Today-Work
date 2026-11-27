@@ -2,8 +2,8 @@
 //   node build.mjs            → 产出优化版（styles.css / app.js / index.html）
 //   node build.mjs --base     → 还原成原始版，用于对照测试
 // 只读 orig/，只写 assets/，不碰 G:/About。
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { expandIs } from './lib/css-expand.mjs';
@@ -11,7 +11,12 @@ import { expandIs } from './lib/css-expand.mjs';
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const orig = (name) => readFileSync(join(ROOT, 'orig', name), 'utf8');
 const patch = (name) => readFileSync(join(ROOT, 'patches', name), 'utf8');
-const out = (name, text) => writeFileSync(join(ROOT, 'assets', name), text);
+// 全新克隆里没有 assets/（生成物不入库），写出前按需建目录
+const out = (name, text) => {
+  const file = join(ROOT, 'assets', name);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, text);
+};
 // 行尾跟随各自的目标文件（实测：styles.css / index.html 是 LF，app.js 是 CRLF），不能用一个全局值
 const eolOf = (name) => (orig(name).includes('\r\n') ? '\r\n' : '\n');
 const matchEol = (target, text) => text.replace(/\r?\n/g, eolOf(target));

@@ -31,6 +31,22 @@ node verify-expand.mjs         # :is() 展开一致性，应为「不一致 0」
 
 `assets/` 是生成物，不入库；比对 `assets.sha256` 即知字节是否正确。
 
+### 历史 tag 的行尾（本机规则）
+
+`v1.0.68` 的树里没有 `.gitattributes`（那是后来的提交才加的），在 `core.autocrlf=true` 的
+机器上检出它时，`styles.css` / `index.html` 会被转成 CRLF，哈希校验必然失败
+（实测 `d345b23c…` / `78448a97…`，而非发布版的 `5b8e55d1…` / `a135992a…`）。
+
+`.git/info/attributes` 优先级最高、且不随 commit 走，所以修法是把它装到本机。这份内容已随仓库
+提交为 `git-attributes.local`，换机器时一条命令即可还原：
+
+```bash
+cp innovation/ui-v2/git-attributes.local .git/info/attributes
+git check-attr eol -- voice-session-fix-20261026/assets/styles.css   # 应输出 eol: lf
+```
+
+不想改配置也行，直接用 `git -c core.autocrlf=false clone …` 检出历史 tag。
+
 构建产物（也是装进手机的字节）：
 
 ```

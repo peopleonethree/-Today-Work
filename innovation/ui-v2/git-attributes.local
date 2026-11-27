@@ -1,0 +1,17 @@
+# 本机局部行尾规则（.git/info/attributes 优先级高于 .gitattributes，且不随 commit 走）。
+# 用途：core.autocrlf=true 的机器上，检出不含 .gitattributes 的历史 tag（如 v1.0.68）时，
+#       styles.css / index.html 不再被改成 CRLF，哈希才能对得上发布版。
+# 这份内容已随仓库提交为 innovation/ui-v2/git-attributes.local，换机器时：
+#   cp innovation/ui-v2/git-attributes.local .git/info/attributes
+# 两份内容必须逐字节一致；仓库根 .gitattributes 的 pin 也要同步改。
+voice-session-fix-20261026/assets/styles.css  text eol=lf
+voice-session-fix-20261026/assets/index.html  text eol=lf
+voice-session-fix-20261026/assets/js/app.js   text eol=crlf
+innovation/ui-v2/orig/styles.css            text eol=lf
+innovation/ui-v2/orig/index.html            text eol=lf
+innovation/ui-v2/orig/message-workbench.css text eol=lf
+innovation/ui-v2/orig/app.js                text eol=crlf
+innovation/ui-v2/patches/ui-v2.css          text eol=lf
+innovation/ui-v2/patches/kb-stable.js       text eol=lf
+innovation/ui-v2/assets.sha256              text eol=lf
+innovation/ui-v2/git-attributes.local       text eol=lf

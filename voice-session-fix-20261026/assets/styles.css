@@ -5167,7 +5167,17 @@ html:root body .nativebar__act[data-tone="primary"] {
 }
 
 /* 主题选择器：按钮本身就是配色预览，保留各自的预览色，只把选中环收成一圈 */
-html:root body .themepick__btn[data-mode="light"] { background: #ffffff; color: var(--text); }
+/* 三块按钮各自固定：预览块的颜色是「所代表主题」的配色，不能跟随当前主题。
+   「浅色」块永远是白底，字色必须钉死为深墨色——跟 var(--text) 走的话，
+   深色模式下会变成近白字（#eef1f7）配白底，对比度只有 1.07:1，等于看不见。 */
+html:root body .themepick__btn[data-mode="light"] { background: #ffffff; color: #3a4356; }
+/* 悬停/按下时全局给按钮套 brightness()，白底已到顶被钳制、字色却会被一起提亮变淡，
+   所以三态各自钉一次字色，任何主题下都保持清晰。 */
+@media (hover: hover) and (pointer: fine) {
+  html:root body .themepick__btn[data-mode="light"]:hover { color: #2c3444; }
+}
+html:root body .themepick__btn[data-mode="light"]:active { color: #262d3b; }
+html:root body .themepick__btn[data-mode="light"]:focus-visible { color: #2c3444; }
 html:root body .themepick__btn[data-mode="dark"] { background: #1c1f28; color: #e7eaf3; }
 html:root body .themepick__btn[data-mode="macaron"] { background: #fdeef0; color: #a8465f; }
 html:root body .themepick__btn.is-active,

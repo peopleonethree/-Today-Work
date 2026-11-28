@@ -158,31 +158,28 @@ test('local vocabulary searches pronunciation and inserts approved examples into
   assert.ok(Object.keys(e.backing).some(key=>key.includes('message-vocabulary:v1:')));
 });
 
-function importFile(e, id, content, name) {
-  const input = e.$(id);
-  Object.defineProperty(input,'files',{configurable:true,value:[new e.w.File([content],name)]});
-  input.dispatchEvent(new e.w.Event('change'));
-}
-
-test('text-file names merge with pasted names and improve todo transcription', async t => {
+test('import UI is removed; a manual person entry still improves todo transcription', async t => {
   const e = await make(t);
   e.$('open-message-workbench').click();
-  e.$('word-names-text').value = '李娜、李娜，王芳';
-  e.$('word-import-names').click();
-  importFile(e,'word-names-file','\ufeff李娜\r\n欧阳明宇\r\n4001234567','names.txt');
-  await sleep(90);
-  const names = e.w.MessageWorkbench.names(e.w.AppStorage,e.user).split('、');
-  assert.deepEqual(names,['李娜','王芳','欧阳明宇']);
+  // 「批量导入人名 / 导入通话记录 / 常用人名 / 粘贴昵称」相关入口全部下线
+  for (const id of ['word-import-names','word-names-text','word-names-file','word-calls-file',
+    'voice-names','voice-names-file','import-voice-names','save-voice-names','paste-voice-names']) {
+    assert.equal(e.w.document.getElementById(id), null, id + ' 应已移除');
+  }
+  // 手动添加人名词条后，语音识别同音字仍被纠正
+  e.$('word-kind').value = '人名';
+  e.$('word-standard').value = '李娜';
+  e.$('word-save').click();
   e.$('close-message-workbench').click();
   e.w.document.querySelector('[data-vt="dict"]').click();
   e.$('voice-btn').click();
   e.done(e.segment(1),'给里纳发消息。跟欧阳明雨交接材料。');
   e.stopped();
   e.$('voice-to-todo').click();
-  assert.equal(e.$('new-todo').value,'给李娜发消息。跟欧阳明宇交接材料。');
+  assert.equal(e.$('new-todo').value,'给李娜发消息。跟欧阳明雨交接材料。');
 });
 
-test('local contacts and actual imported call records coexist with launch-only history', async t => {
+test('local contacts and launch history sync, persist and feed message drafting', async t => {
   const e = await make(t);
   const when = new Date(2026,10,25,18,30).getTime();
   let snapshot = JSON.stringify({
@@ -195,22 +192,15 @@ test('local contacts and actual imported call records coexist with launch-only h
   e.$('word-list').querySelector('button').click();
   assert.equal(e.$('message-platform').value,'qq');
   assert.equal(e.$('message-recipient').value,'李娜');
-  const rows = '2026-11-25 18:30\t李娜\tQQ\t已接通';
-  importFile(e,'word-calls-file',rows + '\n' + rows + '\n2026-02-30 21:02\t李娜\t微信\t已接通','calls.tsv');
-  await sleep(90);
-  assert.match(e.$('word-status').textContent,/新增 1 条.*1 条重复和 1 行无效/);
   e.$('word-filter').value = '通话记录';
   e.$('word-filter').dispatchEvent(new e.w.Event('change'));
-  assert.equal(e.$('word-list').querySelectorAll('li').length,2);
+  assert.equal(e.$('word-list').querySelectorAll('li').length,1);
   assert.match(e.$('word-list').textContent,/通话入口.*已打开客户端/);
-  assert.match(e.$('word-list').textContent,/导入通话记录.*已接通/);
   snapshot = '';
   e.$('word-sync-directory').click();
-  assert.equal(e.$('word-list').querySelectorAll('li').length,2);
   assert.match(e.$('word-status').textContent,/同步失败/);
 
   const restored = await make(t,{store:e.backing});
   restored.$('open-message-workbench').click();
   assert.match(restored.$('word-list').textContent,/13700000001/);
-  assert.match(restored.$('word-list').textContent,/已接通/);
 });

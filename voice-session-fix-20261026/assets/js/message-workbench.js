@@ -29,27 +29,6 @@
     }).slice(0,WORD_LIMIT) : [];
   }
 
-  function parseCalls(text) {
-    var calls = [], rejected = 0;
-    text.replace(/^\uFEFF/, '').split(/\r?\n/).forEach(function(line) {
-      if (!line.trim()) return;
-      var cols = line.split('\t').map(function(value) { return value.trim(); });
-      if (cols.join('\t') === '时间\t联系人\t平台\t结果') return;
-      var date = cols[0].replace(' ', 'T');
-      var when = new global.Date(date);
-      function pad(part) { return String(part).padStart(2, '0'); }
-      var localTime = when.getFullYear() + '-' + pad(when.getMonth() + 1) + '-' + pad(when.getDate()) +
-        'T' + pad(when.getHours()) + ':' + pad(when.getMinutes());
-      if (cols.length !== 4 || date !== localTime || !Number.isFinite(when.getTime()) ||
-          !cols[1] || cols[1].length > 60 || channels.indexOf(cols[2]) < 0 || !cols[3] || cols[3].length > 60) {
-        rejected++;
-        return;
-      }
-      calls.push({when:when.getTime(),name:cols[1],channel:cols[2],result:cols[3],origin:'import'});
-    });
-    return {calls:calls, rejected:rejected};
-  }
-
   function bind(api) {
     var doc = global.document;
     function $(id) { return doc.getElementById(id); }
@@ -57,7 +36,7 @@
     if (!dialog || dialog.dataset.bound) return;
     dialog.dataset.bound = 'true';
     var owner = '', audio = '', capture = null, requesting = false, words = [], timer = null;
-    var directory = {contacts:[], launches:[], imported:[]}, resultLimit = 100;
+    var directory = {contacts:[], launches:[]}, resultLimit = 100;
     var draftText = $('message-text');
     var draftRecipient = $('message-recipient');
     var player = $('message-audio');
@@ -89,7 +68,7 @@
         draftText.value = '';
         draftRecipient.value = '';
         $('message-when').value = '';
-        ['word-standard', 'word-spoken', 'word-example', 'word-search', 'word-names-text'].forEach(function(id) { $(id).value = ''; });
+        ['word-standard', 'word-spoken', 'word-example', 'word-search'].forEach(function(id) { $(id).value = ''; });
         $('word-filter').value = 'all';
         resultLimit = 100;
         wordStatus('');
@@ -97,8 +76,7 @@
         var saved = api.store.read(directoryKey(), {});
         directory = {
           contacts: Array.isArray(saved.contacts) ? saved.contacts : [],
-          launches: Array.isArray(saved.launches) ? saved.launches : [],
-          imported: Array.isArray(saved.imported) ? saved.imported : []
+          launches: Array.isArray(saved.launches) ? saved.launches : []
         };
         showAudio();
       }
@@ -216,24 +194,13 @@
         }));
         list.appendChild(item);
       });
-      if (scope === 'all' || scope === '通话记录') directory.imported.concat(directory.launches)
+      if (scope === 'all' || scope === '通话记录') directory.launches
         .sort(function(a,b) {return b.when-a.when;}).forEach(function(entry) {
           var time = new global.Date(entry.when).toLocaleString('zh-CN');
-          var kind = entry.origin === 'launch' ? '通话入口' : '导入通话记录';
-          if (!include([kind,time,entry.name,entry.channel,entry.number,entry.result])) return;
+          if (!include(['通话入口',time,entry.name,entry.channel,entry.number,entry.result])) return;
           var item = doc.createElement('li');
-          description(item, kind + ' · ' + entry.name + ' · ' + entry.channel);
+          description(item, '通话入口 · ' + entry.name + ' · ' + entry.channel);
           description(item, time + ' · ' + entry.result + (entry.number ? ' · ' + entry.number : ''));
-          var callOwner = owner;
-          if (entry.origin === 'import') item.appendChild(button('删除导入记录', function() {
-            if (api.userKey() !== callOwner || !global.confirm('删除这条已导入的通话记录？')) return;
-            var next = {contacts:directory.contacts, launches:directory.launches,
-              imported:directory.imported.filter(function(call) {return call !== entry;})};
-            if (!api.store.write(directoryKey(),next)) {wordStatus('删除失败，记录仍保留。');return;}
-            directory = next;
-            renderWords();
-            wordStatus('已删除导入记录。');
-          }));
           list.appendChild(item);
         });
       if (!matching) description(list, '没有匹配的本地记录。');
@@ -246,7 +213,7 @@
       try {
         var snapshot = JSON.parse(host.readVocabularyDirectory());
         if (!Array.isArray(snapshot.contacts) || !Array.isArray(snapshot.calls)) throw new Error();
-        var next = {contacts:snapshot.contacts, launches:snapshot.calls, imported:directory.imported};
+        var next = {contacts:snapshot.contacts, launches:snapshot.calls};
         if (!api.store.write(directoryKey(), next)) throw new Error();
         directory = next;
         renderWords();
@@ -257,54 +224,6 @@
     function newWord(kind, standard, spoken, example) {
       return {id:global.Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,11),
         kind:kind, standard:standard, spoken:spoken || '', example:example || ''};
-    }
-
-    function importNames(text) {
-      var names = api.normalizeNames(text).split('、').filter(Boolean);
-      var existing = new Set(words.filter(function(w) {return w.kind === '人名';})
-        .map(function(w) {return w.standard;}));
-      var additions = names.filter(function(name) {return !existing.has(name);});
-      if (!names.length) {wordStatus('未找到可导入的姓名。请输入 2 至 4 个汉字的姓名。');return;}
-      var next = words.concat(additions.map(function(name) {return newWord('人名',name);}));
-      if (next.length > WORD_LIMIT) {wordStatus('词库容量不足，本次未导入。');return;}
-      if (!api.store.write(wordKey(),next)) {wordStatus('导入失败，原词库保留。');return;}
-      words = next;
-      $('word-names-text').value = '';
-      renderWords();
-      wordStatus('已导入 ' + additions.length + ' 个人名，略过 ' + (names.length-additions.length) + ' 个已保存人名。');
-    }
-
-    function importCalls(text) {
-      var parsed = parseCalls(text);
-      function key(call) {return JSON.stringify([call.when,call.name,call.channel,call.result]);}
-      var merged = new Map(directory.imported.map(function(call) {return [key(call),call];}));
-      parsed.calls.forEach(function(call) {merged.set(key(call),call);});
-      var added = merged.size-directory.imported.length;
-      if (merged.size > 2000) {wordStatus('最多保存 2000 条外部通话记录，本次未导入。');return;}
-      if (!parsed.calls.length) {wordStatus('未找到有效通话记录，请核对日期和 Tab 分隔格式。');return;}
-      var next = {contacts:directory.contacts, launches:directory.launches, imported:Array.from(merged.values())};
-      if (!api.store.write(directoryKey(),next)) {wordStatus('保存失败，原记录保留。');return;}
-      directory = next;
-      renderWords();
-      wordStatus('新增 ' + added + ' 条通话记录，略过 ' + (parsed.calls.length-added) + ' 条重复和 ' + parsed.rejected + ' 行无效记录。');
-    }
-
-    function bindImport(id, receive) {
-      $(id).addEventListener('change', function(event) {
-        var file = event.target.files[0];
-        event.target.value = '';
-        if (!file || !account()) return;
-        if (file.size > 262144) {wordStatus('文件过大，请拆成 256 KB 以内的文本。');return;}
-        var accountAtRead = owner, reader = new global.FileReader();
-        reader.onerror = function() {if (api.userKey() === accountAtRead) wordStatus('读取文本失败。');};
-        reader.onload = function() {
-          if (api.userKey() !== accountAtRead) return;
-          var text = String(reader.result);
-          if (text.indexOf('\ufffd') >= 0) {wordStatus('文本编码有误，请保存为 UTF-8。');return;}
-          receive(text);
-        };
-        reader.readAsText(file, 'UTF-8');
-      });
     }
 
     function selectPage(library) {
@@ -516,11 +435,6 @@
       if (host && typeof host.openContactDirectory === 'function') host.openContactDirectory();
       else wordStatus('当前环境没有手机联系人入口。');
     });
-    $('word-import-names').addEventListener('click', function() {
-      if (account()) importNames($('word-names-text').value);
-    });
-    bindImport('word-names-file', importNames);
-    bindImport('word-calls-file', importCalls);
     $('word-save').addEventListener('click', function() {
       if (!account()) return;
       var standard = field($('word-standard').value,500);

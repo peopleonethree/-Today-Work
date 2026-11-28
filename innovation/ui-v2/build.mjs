@@ -150,8 +150,23 @@ if (process.argv.includes('--base')) {
   const jsEol = eolOf('app.js');
   let js = orig('app.js');
   if (!js.endsWith(jsEol)) js += jsEol;
-  /* 补丁按顺序拼接：键盘稳定层 → 粘贴导入 → 常用词档案（互不依赖，各挂各的） */
-  const jsPatches = ['kb-stable.js', 'paste-import.js', 'voice-archive.js'];
+  /* 「常用人名」已由常用词档案库取代并整体下线：识别纠错不再读 prefs.voiceNames，
+     加载时把遗留值清成空串（下一次保存偏好时旧数据随之从存储里消失）。
+     orig/ 是冻结原件，所以用定点替换而不是改源码；每条必须恰好命中一次，命中不了就报错。 */
+  const REPLACES = [
+    ['var configured = normalizeVoiceNames([prefs.voiceNames || \'\', libraryNames].join(\'、\'));',
+     'var configured = normalizeVoiceNames(libraryNames);'],
+    ['prefs.voiceNames = normalizeVoiceNames(raw.voiceNames);',
+     'prefs.voiceNames = \'\';'],
+  ];
+  for (const [from, to] of REPLACES) {
+    const first = js.indexOf(from);
+    must(first >= 0 && js.indexOf(from, first + 1) < 0, `app.js 定点替换未唯一命中：${from.slice(0, 40)}…`);
+    js = js.slice(0, first) + to + js.slice(first + from.length);
+  }
+  /* 补丁按顺序拼接：键盘稳定层 → 常用词档案 → 遗留功能清理（清理要在档案之后，
+     档案库入口按钮挂在设置页旧控件旁边，清理只删旧控件、不动入口按钮） */
+  const jsPatches = ['kb-stable.js', 'voice-archive.js', 'cleanup-legacy.js'];
   if (!process.env.UI_NOJS) {
     out(join('js', 'app.js'), js + jsPatches.map((name) => matchEol('app.js', patch(name))).join(''));
   } else {

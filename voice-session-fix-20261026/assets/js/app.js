@@ -2735,7 +2735,7 @@
       }
       prefs.voiceTodoMode = raw.voiceTodoMode === 'realtime' ? 'realtime' : 'dict';
       prefs.voiceMemoMode = raw.voiceMemoMode === 'dict' ? 'dict' : 'realtime';
-      prefs.voiceNames = normalizeVoiceNames(raw.voiceNames);
+      prefs.voiceNames = '';
       if (raw.llmModels && Object.prototype.toString.call(raw.llmModels) === '[object Array]') {
         for (var mi = 0; mi < raw.llmModels.length; mi++) {
           var stored = normalizeStoredModel(raw.llmModels[mi]);
@@ -11268,7 +11268,7 @@
     if (!pinyin) return text;
     var libraryNames = state.user && global.MessageWorkbench
       ? global.MessageWorkbench.names(Store, state.user.key) : '';
-    var configured = normalizeVoiceNames([prefs.voiceNames || '', libraryNames].join('、'));
+    var configured = normalizeVoiceNames(libraryNames);
     if (!configured) return text;
     function key(name) {
       var syllables = Array.from(name,function(ch){return pinyin[ch];});
@@ -13230,7 +13230,11 @@
     var layers = doc.querySelectorAll('.sheet-layer');
     for (var i = 0; i < layers.length; i++) if (visible(layers[i])) out.push(layers[i]);
     var dialogs = doc.querySelectorAll('dialog[open]');
-    for (var j = 0; j < dialogs.length; j++) out.push(dialogs[j]);
+    for (var j = 0; j < dialogs.length; j++) {
+      /* 带 data-kb-skip 的弹层自己管键盘下的布局（如常用词档案的 flex 弹层，
+         限高随视口走），不再按「弹出前高度」锁死——锁旧值反而会把它顶出视口 */
+      if (!dialogs[j].hasAttribute('data-kb-skip')) out.push(dialogs[j]);
+    }
     return out;
   }
 
@@ -13526,206 +13530,6 @@
     doc.addEventListener('DOMContentLoaded', start);
   } else {
     start();
-  }
-})(window);
-/* ==========================================================================
-   paste-import.js — 常用人名「粘贴昵称」入口
-   --------------------------------------------------------------------------
-   为什么需要：设置页原来只有「从文本导入」，点开是系统文件选择器，要求用户先有
-   一份 UTF-8 的 txt。微信 / QQ 都不提供好友名单导出，所以这个入口等于死路。
-
-   本补丁在不碰 dex、不碰 HTML 的前提下，加一个「粘贴昵称」按钮 + 一个 <dialog>：
-   在微信 / QQ 里长按复制昵称，粘进来，点「导入」即追加到 #voice-names。
-   归一化与去重完全交给原有的「保存常用人名」流程（app.js 的 normalizeVoiceNames），
-   这里不复制那套规则，避免两处规则漂移。
-
-   注意：app.js 整体在 (function (global) { … })(window) 里，本补丁拼接在其后，
-   拿不到闭包内的 toast / normalizeVoiceNames，因此 toast 复用页面上的 #toast 元素，
-   样式只使用 :root 里的主题令牌，跟随三套主题自动变色。
-   ========================================================================== */
-(function (global) {
-  'use strict';
-
-  var doc = global.document;
-  var BTN_ID = 'paste-voice-names';
-  var DLG_ID = 'paste-voice-names-dialog';
-  var STYLE_ID = 'paste-voice-names-style';
-
-  var CSS = [
-    '#' + DLG_ID + '{width:min(92vw,32rem);max-height:86vh;overflow:auto;padding:16px;',
-    '  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text);}',
-    '#' + DLG_ID + '::backdrop{background:rgba(20,26,44,.42);}',
-    '#' + DLG_ID + ' header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 10px;}',
-    '#' + DLG_ID + ' header h2{margin:0;font-size:16px;color:var(--text);}',
-    '#' + DLG_ID + ' p{margin:0 0 10px;color:var(--text-2);font-size:13px;line-height:1.65;}',
-    '#' + DLG_ID + ' textarea{width:100%;min-height:9em;padding:10px;border:1px solid var(--line);',
-    '  border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font:inherit;font-size:14px;resize:vertical;}',
-    '#' + DLG_ID + ' .paste-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}',
-    '#' + DLG_ID + ' button{min-height:40px;padding:0 14px;border:1px solid var(--line);',
-    '  border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:14px;}',
-    '#' + DLG_ID + ' button[data-apply]{background:var(--primary);border-color:var(--primary);color:#fff;}',
-  ].join('\n');
-
-  function $(id) {
-    return doc.getElementById(id);
-  }
-
-  /* 复用页面自带的 #toast，样式与 App 内部提示一致 */
-  function tip(message) {
-    var el = $('toast');
-    if (!el) return;
-    el.textContent = message;
-    el.classList.add('is-show');
-    if (tip.timer) global.clearTimeout(tip.timer);
-    tip.timer = global.setTimeout(function () {
-      el.classList.remove('is-show');
-    }, 2600);
-  }
-
-  /* 一行一个为主流粘贴格式；顿号 / 逗号 / 分号 / 竖线也当分隔符。
-     顺序很关键：必须**先按行剥掉行首序号，再切分隔符**。
-     反例（真机实测）：`3、测试丙、测试丁` 若先按顿号切，会切出孤立的 `3`，
-     序号正则匹配不到它，`3` 就被当成一个昵称导入了（提示「已加入 7 条」而非 6 条）。
-     纯数字条目再兜底丢掉，避免序号以任何形式残留。 */
-  function splitNames(text) {
-    return String(text == null ? '' : text)
-      .split(/\r?\n/)
-      .map(function (line) {
-        return line.replace(/^\s*\d+\s*[.、)．]\s*/, '').trim();
-      })
-      .join('\n')
-      .split(/[\r\n、，,；;|]+/)
-      .map(function (item) {
-        return item.trim();
-      })
-      .filter(function (item) {
-        return item.length > 0 && !/^\d+$/.test(item);
-      });
-  }
-
-  function buildDialog() {
-    var dlg = doc.createElement('dialog');
-    dlg.id = DLG_ID;
-    dlg.setAttribute('aria-labelledby', DLG_ID + '-title');
-    dlg.innerHTML = [
-      '<header>',
-      '  <h2 id="' + DLG_ID + '-title">粘贴昵称</h2>',
-      '  <button type="button" data-close>关闭</button>',
-      '</header>',
-      '<p>在微信 / QQ 里长按昵称或备注复制，粘到下面。一行一个，或用顿号、逗号分隔，行首序号（1. / 3、）会自动去掉。<br>',
-      '  点「读取剪贴板」没反应时，长按输入框选「粘贴」即可。<br>',
-      '  点「导入」只是追加到「常用人名」，核对无误后再点「保存常用人名」；保存时只保留 2–4 个汉字，',
-      '  昵称里的表情、字母、数字行会被忽略。</p>',
-      '<textarea id="' + DLG_ID + '-text" placeholder="李娜&#10;欧阳明宇"></textarea>',
-      '<div class="paste-row">',
-      '  <button type="button" data-clip>读取剪贴板</button>',
-      '  <button type="button" data-close>取消</button>',
-      '  <button type="button" data-apply>导入</button>',
-      '</div>',
-    ].join('\n');
-    return dlg;
-  }
-
-  function area() {
-    return $('voice-names');
-  }
-
-  function doImport(dlg) {
-    var target = area();
-    var box = $(DLG_ID + '-text');
-    if (!target || !box) return;
-    var names = splitNames(box.value);
-    if (!names.length) {
-      tip('没有可导入的内容');
-      return;
-    }
-    var head = target.value.replace(/[、，,\s]+$/, '');
-    target.value = (head ? head + '、' : '') + names.join('、');
-    /* 值是被脚本改的，通知一下可能监听 input/change 的逻辑 */
-    target.dispatchEvent(new global.Event('input', { bubbles: true }));
-    dlg.close();
-    tip('已加入 ' + names.length + ' 条，请核对后点「保存常用人名」');
-  }
-
-  /* 真机实测：待办 App 的 WebView 没处理 onPermissionRequest，readText() 必被拒
-     （NotAllowedError），所以这里的失败分支是常态而不是例外。失败时把焦点放到输入框，
-     让「长按 → 粘贴」这条系统菜单路径一步可达。 */
-  function guideManualPaste(message) {
-    var box = $(DLG_ID + '-text');
-    tip(message);
-    if (box) box.focus();
-  }
-
-  function readClipboard() {
-    var box = $(DLG_ID + '-text');
-    var clip = global.navigator && global.navigator.clipboard;
-    if (!box) return;
-    if (!clip || typeof clip.readText !== 'function') {
-      guideManualPaste('长按输入框，选「粘贴」即可');
-      return;
-    }
-    clip.readText().then(function (text) {
-      if (!text) {
-        tip('剪贴板是空的');
-        return;
-      }
-      box.value = box.value ? box.value.replace(/\s+$/, '') + '\n' + text : text;
-    }).catch(function () {
-      guideManualPaste('长按输入框，选「粘贴」即可');
-    });
-  }
-
-  function bind(dlg) {
-    dlg.addEventListener('click', function (event) {
-      var node = event.target;
-      var btn = node && typeof node.closest === 'function' ? node.closest('button') : null;
-      if (!btn) {
-        /* 点遮罩关闭：event.target 就是 dialog 本身 */
-        if (event.target === dlg) dlg.close();
-        return;
-      }
-      if (btn.hasAttribute('data-close')) dlg.close();
-      else if (btn.hasAttribute('data-clip')) readClipboard();
-      else if (btn.hasAttribute('data-apply')) doImport(dlg);
-    });
-  }
-
-  function mount() {
-    if ($(BTN_ID)) return;
-    var anchor = $('import-voice-names');
-    if (!anchor || !anchor.parentNode) return;
-
-    if (!$(STYLE_ID)) {
-      var style = doc.createElement('style');
-      style.id = STYLE_ID;
-      style.textContent = CSS;
-      doc.head.appendChild(style);
-    }
-
-    var btn = doc.createElement('button');
-    btn.type = 'button';
-    btn.id = BTN_ID;
-    btn.className = anchor.className;
-    btn.textContent = '粘贴昵称';
-    anchor.parentNode.insertBefore(btn, anchor.nextSibling);
-
-    var dlg = buildDialog();
-    doc.body.appendChild(dlg);
-    bind(dlg);
-
-    btn.addEventListener('click', function () {
-      var box = $(DLG_ID + '-text');
-      if (box) box.value = '';
-      dlg.showModal();
-      if (box) box.focus();
-      readClipboard();
-    });
-  }
-
-  if (doc.readyState === 'loading') {
-    doc.addEventListener('DOMContentLoaded', mount);
-  } else {
-    mount();
   }
 })(window);
 /* ==========================================================================
@@ -14213,18 +14017,6 @@
     return out;
   }
 
-  /* 「常用人名」里那串顿号/逗号/换行分隔的名字 → 人名条目 */
-  function parseNames(text) {
-    var items = String(text == null ? '' : text).split(/[\r\n、，,；;|]+/);
-    var out = [];
-    for (var i = 0; i < items.length; i++) {
-      var name = str(items[i], LIMITS.correct);
-      if (!name || /^\d+$/.test(name)) continue;
-      out.push(name);
-    }
-    return out;
-  }
-
   /* 合并导入：同 correct 的跳过（不覆盖用户已改过的误识别） */
   function mergeEntries(items) {
     var data = load();
@@ -14281,10 +14073,12 @@
 
   var CSS = [
     '#' + DLG_ID + '{width:min(94vw,40rem);max-height:88vh;overflow:auto;padding:16px;',
+    '  display:flex;flex-direction:column;',
+    '  max-height:min(88vh, calc(100dvh - 16px));',
     '  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text);}',
     '#' + DLG_ID + '::backdrop{background:rgba(20,26,44,.5);}',
     '#' + DLG_ID + ' h2{margin:0;font-size:16px;}',
-    '#' + DLG_ID + ' header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px;}',
+    '#' + DLG_ID + ' header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px;flex:none;}',
     '#' + DLG_ID + ' button{min-height:38px;padding:0 12px;border:1px solid var(--line);',
     '  border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}',
     '#' + DLG_ID + ' button[data-primary]{background:var(--primary);border-color:var(--primary);color:#fff;}',
@@ -14297,7 +14091,10 @@
     '#' + DLG_ID + ' .va-tools input{flex:2 1 12rem;}',
     '#' + DLG_ID + ' .va-tools select{flex:1 1 7rem;}',
     '#' + DLG_ID + ' .va-meta{margin:0 0 8px;color:var(--text-2);font-size:12px;}',
-    '#' + DLG_ID + ' .va-list{display:flex;flex-direction:column;gap:8px;max-height:38vh;overflow:auto;}',
+    '#' + DLG_ID + ' .va-list{display:flex;flex-direction:column;gap:8px;max-height:38vh;overflow:auto;',
+    '  min-height:0;flex:0 1 auto;}',
+    /* 表单/批量面板展开时压缩列表，保证整弹层始终装得进视口（真机小屏实测过的问题） */
+    '#' + DLG_ID + '.is-editing .va-list{max-height:20vh;}',
     '#' + DLG_ID + ' .va-item{border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;',
     '  display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;}',
     '#' + DLG_ID + ' .va-item.is-off{opacity:.55;}',
@@ -14309,7 +14106,8 @@
     '#' + DLG_ID + ' .va-item button{padding:0 8px;min-height:32px;font-size:12px;}',
     '#' + DLG_ID + ' .va-item button[data-danger]{color:#c0392b;border-color:rgba(192,57,43,.5);}',
     '#' + DLG_ID + ' .va-empty{color:var(--text-2);font-size:13px;padding:14px 0;text-align:center;}',
-    '#' + DLG_ID + ' .va-form{border:1px dashed var(--line);border-radius:var(--radius-sm);padding:10px;margin:10px 0 0;}',
+    '#' + DLG_ID + ' .va-form{border:1px dashed var(--line);border-radius:var(--radius-sm);padding:10px;margin:10px 0 0;',
+    '  max-height:54vh;min-height:0;overflow:auto;flex:0 1 auto;}',
     '#' + DLG_ID + ' .va-form.is-hidden,#' + DLG_ID + ' .va-bulk.is-hidden{display:none;}',
     '#' + DLG_ID + ' .va-field{margin-bottom:8px;}',
     '#' + DLG_ID + ' .va-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px;}',
@@ -14317,7 +14115,8 @@
     '#' + DLG_ID + ' .va-kinds button.is-active{background:var(--primary);border-color:var(--primary);color:#fff;}',
     '#' + DLG_ID + ' .va-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}',
     '#' + DLG_ID + ' .va-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}',
-    '#' + DLG_ID + ' .va-bulk{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-top:10px;}',
+    '#' + DLG_ID + ' .va-bulk{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-top:10px;',
+    '  max-height:48vh;min-height:0;overflow:auto;flex:0 1 auto;}',
     '#' + DLG_ID + ' .va-try-out{margin:6px 0 0;white-space:pre-wrap;word-break:break-all;font-size:13px;',
     '  color:var(--text);background:var(--bg);border-radius:var(--radius-sm);padding:8px;min-height:1.6em;}',
     '#' + BTN_ID + '{margin-left:4px;}',
@@ -14426,6 +14225,19 @@
     }).join('');
   }
 
+  /* 任一子面板（表单/批量/试跑）展开时给弹层挂 is-editing，让列表让出高度 */
+  function syncEditClass() {
+    var dlg = $(DLG_ID);
+    if (!dlg) return;
+    var ids = [DLG_ID + '-form', DLG_ID + '-bulk', DLG_ID + '-try'];
+    var open = false;
+    for (var i = 0; i < ids.length; i++) {
+      var panel = $(ids[i]);
+      if (panel && !panel.classList.contains('is-hidden')) { open = true; break; }
+    }
+    dlg.classList.toggle('is-editing', open);
+  }
+
   function openForm(entry) {
     var form = $(DLG_ID + '-form');
     if (!form) return;
@@ -14439,6 +14251,7 @@
     $(DLG_ID + '-form-title').textContent = entry ? '编辑条目' : '新建条目';
     syncKindButtons();
     form.classList.remove('is-hidden');
+    syncEditClass();
     var box = $(DLG_ID + '-correct');
     if (box) {
       try { box.focus(); } catch (err) { /* 忽略 */ }
@@ -14449,6 +14262,7 @@
     var form = $(DLG_ID + '-form');
     if (form) form.classList.add('is-hidden');
     state.editingId = '';
+    syncEditClass();
   }
 
   function syncKindButtons() {
@@ -14556,27 +14370,7 @@
     }, 3000);
   }
 
-  /* ---------------- 导入 / 导出 / 试跑 ---------------- */
-
-  function importNames() {
-    var box = $('voice-names');
-    if (!box) {
-      tip('找不到「常用人名」输入框');
-      return;
-    }
-    var names = parseNames(box.value);
-    if (!names.length) {
-      tip('「常用人名」是空的，先在那里填名字');
-      return;
-    }
-    var items = names.map(function (name) {
-      return { correct: name, wrong: [], kind: 'person', source: 'import' };
-    });
-    var res = mergeEntries(items);
-    renderList();
-    syncCount();
-    tip('从常用人名加入 ' + res.added + ' 条' + (res.skipped ? '，已存在 ' + res.skipped + ' 条' : ''));
-  }
+  /* ---------------- 导出 / 试跑 ---------------- */
 
   function runBulk() {
     var box = $(DLG_ID + '-bulk-text');
@@ -14590,6 +14384,7 @@
     box.value = '';
     var panel = $(DLG_ID + '-bulk');
     if (panel) panel.classList.add('is-hidden');
+    syncEditClass();
     renderList();
     syncCount();
     tip('批量加入 ' + res.added + ' 条' + (res.skipped ? '，已存在 ' + res.skipped + ' 条' : ''));
@@ -14605,6 +14400,7 @@
     var panel = $(DLG_ID + '-bulk');
     var box = $(DLG_ID + '-bulk-text');
     if (panel) panel.classList.remove('is-hidden');
+    syncEditClass();
     if (box) {
       box.value = text;
       try { box.focus(); box.select(); } catch (err) { /* 忽略 */ }
@@ -14866,6 +14662,9 @@
     var dlg = doc.createElement('dialog');
     dlg.id = DLG_ID;
     dlg.setAttribute('aria-labelledby', DLG_ID + '-title');
+    /* 键盘弹出时不让 kb-stable 锁尺寸：本弹层限高随视口走（flex + 内部滚动），
+       锁「弹出前高度」的旧值会把底部按钮顶出视口（真机实测过） */
+    dlg.setAttribute('data-kb-skip', '');
     dlg.innerHTML = [
       '<header>',
       '  <h2 id="' + DLG_ID + '-title">常用词与纠错档案</h2>',
@@ -14907,7 +14706,6 @@
       '</div>',
       '<div class="va-actions">',
       '  <button type="button" data-primary data-new>新建一条</button>',
-      '  <button type="button" data-import>从常用人名导入</button>',
       '  <button type="button" data-bulk>批量粘贴</button>',
       '  <button type="button" data-try>试跑一句</button>',
       '  <button type="button" data-export>导出文本</button>',
@@ -14961,18 +14759,20 @@
       else if (btn.hasAttribute('data-new')) openForm(null);
       else if (btn.hasAttribute('data-save')) submitForm();
       else if (btn.hasAttribute('data-cancel')) closeForm();
-      else if (btn.hasAttribute('data-import')) importNames();
       else if (btn.hasAttribute('data-bulk')) {
         var panel = $(DLG_ID + '-bulk');
         if (panel) panel.classList.toggle('is-hidden');
+        syncEditClass();
       } else if (btn.hasAttribute('data-bulk-run')) runBulk();
       else if (btn.hasAttribute('data-bulk-close')) {
         var closePanel = $(DLG_ID + '-bulk');
         if (closePanel) closePanel.classList.add('is-hidden');
+        syncEditClass();
       } else if (btn.hasAttribute('data-export')) runExport();
       else if (btn.hasAttribute('data-try')) {
         var tryPanel = $(DLG_ID + '-try');
         if (tryPanel) tryPanel.classList.toggle('is-hidden');
+        syncEditClass();
       } else if (btn.hasAttribute('data-try-run')) runTry();
     });
 
@@ -14993,34 +14793,9 @@
     }
   }
 
-  /* 第一次打开：把「常用人名」里已有的名字搬一份进档案，只搬一次 */
-  function seedOnce() {
-    var data = load();
-    if (data.seeded) return;
-    data.seeded = true;
-    var box = $('voice-names');
-    var names = box ? parseNames(box.value) : [];
-    if (names.length) {
-      var exists = Object.create(null);
-      var i;
-      for (i = 0; i < data.entries.length; i++) exists[data.entries[i].correct] = true;
-      for (i = 0; i < names.length && data.entries.length < MAX_ENTRIES; i++) {
-        if (exists[names[i]]) continue;
-        data.entries.push({
-          id: newId(), kind: 'person', correct: names[i], wrong: [], scene: '', accent: '', note: '',
-          enabled: true, hits: 0, lastHitAt: 0, source: 'import',
-          createdAt: Date.now(), updatedAt: Date.now()
-        });
-        exists[names[i]] = true;
-      }
-    }
-    persist(data);
-  }
-
   function openDialog() {
     var dlg = $(DLG_ID);
     if (!dlg) return;
-    seedOnce();
     closeForm();
     var auto = $(DLG_ID + '-auto');
     if (auto) auto.checked = load().settings.auto !== false;
@@ -15028,6 +14803,7 @@
     if (bulk) bulk.classList.add('is-hidden');
     var tryPanel = $(DLG_ID + '-try');
     if (tryPanel) tryPanel.classList.add('is-hidden');
+    syncEditClass();
     renderList();
     syncCount();
     if (typeof dlg.showModal === 'function') dlg.showModal();
@@ -15106,7 +14882,6 @@
     correct: correct,
     diffPair: diffPair,
     splitBulk: splitBulk,
-    parseNames: parseNames,
     guessKind: guessKind,
     loosen: looseSyllable,
     learn: learn,
@@ -15120,5 +14895,72 @@
     doc.addEventListener('DOMContentLoaded', mount);
   } else {
     mount();
+  }
+})(window);
+/* ==========================================================================
+   遗留功能清理层（2026-11-28 追加在 app.js 末尾，独立作用域，不改上面的逻辑）
+
+   「常用人名」与「QQ／微信好友名单导入」已由常用词档案库（voice-archive.js）
+   取代，本层把它们的界面残骸摘掉：
+
+   1. 设置页「常用人名」行：输入框、从文本导入、保存常用人名、隐藏的文件选择框
+      （联系人与通话按钮在同一个区块里，必须留下）。
+      相关行为在 app.js 侧已由 build.mjs 的定点替换切断：
+      识别纠错不再读 prefs.voiceNames，加载时把遗留值清成空串。
+   2. 词库面板的「批量导入人名」整块，以及「导入通话记录」入口和格式说明——
+      手动添加词条、管理联系人、同步到当前账号词库、查词都不受影响。
+   3. 文案里「已导入的 QQ／微信名单」的提法同步收掉。
+
+   只删 DOM，不动存储：旧数据（prefs.voiceNames、目录里的导入通话记录）变成
+   无人读取的死字节，其中 prefs.voiceNames 会在下一次保存偏好时被空串覆盖。
+   全部节点找不到时静默跳过，兼容 --base 版与测试环境。
+   ========================================================================== */
+(function (global) {
+  'use strict';
+
+  var doc = global.document;
+  if (!doc) return;
+
+  function removeId(id) {
+    var el = doc.getElementById(id);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function run() {
+    /* 一、设置页：常用人名行（保留联系人与通话按钮和区块本身） */
+    removeId('voice-names');
+    removeId('voice-names-help');
+    removeId('import-voice-names');
+    removeId('voice-names-file');
+    removeId('save-voice-names');
+    var label = doc.querySelector('label[for="voice-names"]');
+    if (label && label.parentNode) label.parentNode.removeChild(label);
+
+    /* 二、词库面板：批量导入人名 / 导入通话记录 */
+    var pasteBox = doc.getElementById('word-names-text');
+    var pasteDetails = pasteBox && pasteBox.closest ? pasteBox.closest('details') : null;
+    if (pasteDetails && pasteDetails.parentNode) pasteDetails.parentNode.removeChild(pasteDetails);
+    var callsLabel = doc.getElementById('word-calls-file');
+    callsLabel = callsLabel && callsLabel.closest ? callsLabel.closest('label') : null;
+    if (callsLabel && callsLabel.parentNode) callsLabel.parentNode.removeChild(callsLabel);
+    removeId('word-calls-format');
+
+    /* 三、联系人与通话记录块的说明文案：去掉 QQ／微信名单的提法 */
+    var openContacts = doc.getElementById('word-open-contacts');
+    var dirDetails = openContacts && openContacts.closest ? openContacts.closest('details') : null;
+    if (dirDetails) {
+      var ps = dirDetails.querySelectorAll('p');
+      for (var i = 0; i < ps.length; i++) {
+        if (ps[i].textContent.indexOf('已导入的') >= 0) {
+          ps[i].textContent = '同步已确认的手机联系人，以及通过联系人页打开拨号盘或客户端的记录。';
+        }
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
   }
 })(window);

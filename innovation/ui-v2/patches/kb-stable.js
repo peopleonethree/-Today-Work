@@ -50,7 +50,11 @@
     var layers = doc.querySelectorAll('.sheet-layer');
     for (var i = 0; i < layers.length; i++) if (visible(layers[i])) out.push(layers[i]);
     var dialogs = doc.querySelectorAll('dialog[open]');
-    for (var j = 0; j < dialogs.length; j++) out.push(dialogs[j]);
+    for (var j = 0; j < dialogs.length; j++) {
+      /* 带 data-kb-skip 的弹层自己管键盘下的布局（如常用词档案的 flex 弹层，
+         限高随视口走），不再按「弹出前高度」锁死——锁旧值反而会把它顶出视口 */
+      if (!dialogs[j].hasAttribute('data-kb-skip')) out.push(dialogs[j]);
+    }
     return out;
   }
 

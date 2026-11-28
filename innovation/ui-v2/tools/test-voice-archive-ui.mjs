@@ -78,11 +78,17 @@ try {
   const label0 = await evaluate(api.cdp, `document.getElementById('open-voice-archive').textContent`);
   eq('未建档时按钮不显示条数', label0, '常用词档案');
 
-  // 先把旧入口的文本框填两个名字，验证「一次性迁移」
+  // 旧「常用人名」入口已下线，改为直接往 localStorage 播种 2 条，验证档案库读取
   await evaluate(api.cdp, `(() => {
-    const box = document.getElementById('voice-names');
-    box.value = '李娜、欧阳明宇';
-    box.dispatchEvent(new Event('input', { bubbles: true }));
+    const now = Date.now();
+    const entry = (correct) => ({
+      id: 'va_seed_' + correct, kind: 'person', correct, wrong: [], scene: '', accent: '', note: '',
+      enabled: true, hits: 0, lastHitAt: 0, source: 'manual', createdAt: now, updatedAt: now
+    });
+    localStorage.setItem('today-todo:v1:voiceArchive', JSON.stringify({
+      v: 1, settings: { auto: true }, updatedAt: now,
+      entries: [entry('李娜'), entry('欧阳明宇')]
+    }));
     return true;
   })()`);
 
@@ -103,7 +109,6 @@ try {
   }
   await tapInView('#open-voice-archive');
   ok('档案库弹层打开', await api.waitFor('#va-dialog', 3000));
-  await waitSaved();   /* 一次性迁移走 saveSoon，等它落盘 */
   if (process.env.VA_DEBUG) {
     console.log('[dbg] probe =', await evaluate(api.cdp, `window.__probe.join(' ; ')`),
       '| dlg.open =', await evaluate(api.cdp, `document.getElementById('va-dialog').open`),
@@ -115,9 +120,9 @@ try {
     const d = JSON.parse(localStorage.getItem('today-todo:v1:voiceArchive') || 'null');
     return d ? { n: d.entries.length, kinds: d.entries.map(e => e.kind), names: d.entries.map(e => e.correct) } : null;
   })()`);
-  eq('迁移出 2 条', seeded && seeded.n, 2);
-  eq('迁移类型为人名', (seeded && seeded.kinds || []).join('/'), 'person/person');
-  eq('迁移内容正确', (seeded && seeded.names || []).join('/'), '李娜/欧阳明宇');
+  eq('播种 2 条已读取', seeded && seeded.n, 2);
+  eq('条目类型为人名', (seeded && seeded.kinds || []).join('/'), 'person/person');
+  eq('条目内容正确', (seeded && seeded.names || []).join('/'), '李娜/欧阳明宇');
   const label1 = await evaluate(api.cdp, `document.getElementById('open-voice-archive').textContent`);
   eq('按钮显示条数', label1, '常用词档案（2）');
 
@@ -293,6 +298,60 @@ try {
   await tapInView('#va-dialog [data-cancel]');
   await sleep(150);
   eq('取消后表单收起', await evaluate(api.cdp, `document.getElementById(${JSON.stringify(ID('form'))}).classList.contains('is-hidden')`), true);
+
+  // 小屏回归：模拟真机 IME 把视口压到 ~533px（869 - 336 键盘）。
+  // 修复前：表单展开把弹层撑爆视口，保存/取消和条目删除按钮被顶出可视区
+  // （a11y 高度 0，真机要靠滚动+键盘组合才能点到）。修复后：弹层 flex 列布局
+  // + dvh 限高，表单内部滚动，列表让位，所有按钮保持可达。
+  await tapInView('#va-dialog [data-new]');
+  await sleep(150);
+  await api.keyboard(true);
+  await sleep(400);
+  const fit = await evaluate(api.cdp, `(() => {
+    const dlg = document.getElementById('va-dialog');
+    const form = document.getElementById('va-dialog-form');
+    const save = document.querySelector('#va-dialog [data-save]');
+    const inside = (el) => {
+      const r = el.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= innerHeight && r.height > 0;
+    };
+    const dr = dlg.getBoundingClientRect();
+    return {
+      vh: innerHeight,
+      dlgH: Math.round(dr.height),
+      dlgInside: dr.top >= 0 && dr.bottom <= innerHeight,
+      formOpen: form && !form.classList.contains('is-hidden'),
+      saveReachable: (() => { save.scrollIntoView({ block: 'center', behavior: 'instant' }); return inside(save); })()
+    };
+  })()`);
+  ok('键盘压缩视口后弹层整体仍在视口内', fit.dlgInside, JSON.stringify(fit));
+  ok('表单保持展开', fit.formOpen, JSON.stringify(fit));
+  ok('保存按钮滚入即达视口内', fit.saveReachable, JSON.stringify(fit));
+  await tapInView(S('correct'));
+  await api.type('键盘小屏测试词');
+  await tapInView('#va-dialog [data-save]');
+  await waitSaved();
+  eq('键盘压缩视口下真触摸保存成功', await evaluate(api.cdp, `JSON.parse(localStorage.getItem('today-todo:v1:voiceArchive')).entries.some(e => e.correct === '键盘小屏测试词')`), true);
+
+  await tapInView('#va-dialog [data-new]');
+  await sleep(150);
+  await tapInView('#va-dialog [data-cancel]');
+  await sleep(150);
+  eq('键盘压缩视口下取消可达', await evaluate(api.cdp, `document.getElementById(${JSON.stringify(ID('form'))}).classList.contains('is-hidden')`), true);
+  await api.keyboard(false);
+  await sleep(300);
+
+  // 清理这条测试数据（删除二次确认）
+  for (let i = 0; i < 2; i++) {
+    await evaluate(api.cdp, `(() => {
+      const item = [...document.querySelectorAll('#va-dialog .va-item')].find(el => el.querySelector('.va-word').textContent === '键盘小屏测试词');
+      item.querySelector('button[data-act="del"]').click();
+      return true;
+    })()`);
+    await sleep(180);
+  }
+  await waitSaved();
+  eq('小屏测试数据已清理', await evaluate(api.cdp, `JSON.parse(localStorage.getItem('today-todo:v1:voiceArchive')).entries.some(e => e.correct === '键盘小屏测试词')`), false);
 
   // 语音钩子
   eq('VoiceHost 已挂钩', await evaluate(api.cdp, `!!(window.VoiceHost && window.VoiceHost.__vaHooked)`), true);

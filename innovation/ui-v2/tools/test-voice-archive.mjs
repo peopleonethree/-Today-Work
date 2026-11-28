@@ -128,9 +128,6 @@ const entry = (o) => Object.assign({
   eq('D2 行首序号不残留', items[1].correct, '毕设实物');
   eq('D2 纯数字行丢弃', items[2].correct, '李娜');
   eq('D2 类型猜测（2–4 汉字→人名）', items[0].kind, 'person');
-
-  const names = VA.parseNames('李娜、欧阳明宇\n3\n楚星云');
-  eq('D1 常用人名解析', names.join('/'), '李娜/欧阳明宇/楚星云');
 }
 
 /* ---------- 八、落盘往返（无 AppStorage 时走内存） ---------- */

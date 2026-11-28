@@ -483,18 +483,6 @@
     return out;
   }
 
-  /* 「常用人名」里那串顿号/逗号/换行分隔的名字 → 人名条目 */
-  function parseNames(text) {
-    var items = String(text == null ? '' : text).split(/[\r\n、，,；;|]+/);
-    var out = [];
-    for (var i = 0; i < items.length; i++) {
-      var name = str(items[i], LIMITS.correct);
-      if (!name || /^\d+$/.test(name)) continue;
-      out.push(name);
-    }
-    return out;
-  }
-
   /* 合并导入：同 correct 的跳过（不覆盖用户已改过的误识别） */
   function mergeEntries(items) {
     var data = load();
@@ -551,10 +539,12 @@
 
   var CSS = [
     '#' + DLG_ID + '{width:min(94vw,40rem);max-height:88vh;overflow:auto;padding:16px;',
+    '  display:flex;flex-direction:column;',
+    '  max-height:min(88vh, calc(100dvh - 16px));',
     '  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text);}',
     '#' + DLG_ID + '::backdrop{background:rgba(20,26,44,.5);}',
     '#' + DLG_ID + ' h2{margin:0;font-size:16px;}',
-    '#' + DLG_ID + ' header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px;}',
+    '#' + DLG_ID + ' header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px;flex:none;}',
     '#' + DLG_ID + ' button{min-height:38px;padding:0 12px;border:1px solid var(--line);',
     '  border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}',
     '#' + DLG_ID + ' button[data-primary]{background:var(--primary);border-color:var(--primary);color:#fff;}',
@@ -567,7 +557,10 @@
     '#' + DLG_ID + ' .va-tools input{flex:2 1 12rem;}',
     '#' + DLG_ID + ' .va-tools select{flex:1 1 7rem;}',
     '#' + DLG_ID + ' .va-meta{margin:0 0 8px;color:var(--text-2);font-size:12px;}',
-    '#' + DLG_ID + ' .va-list{display:flex;flex-direction:column;gap:8px;max-height:38vh;overflow:auto;}',
+    '#' + DLG_ID + ' .va-list{display:flex;flex-direction:column;gap:8px;max-height:38vh;overflow:auto;',
+    '  min-height:0;flex:0 1 auto;}',
+    /* 表单/批量面板展开时压缩列表，保证整弹层始终装得进视口（真机小屏实测过的问题） */
+    '#' + DLG_ID + '.is-editing .va-list{max-height:20vh;}',
     '#' + DLG_ID + ' .va-item{border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;',
     '  display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;}',
     '#' + DLG_ID + ' .va-item.is-off{opacity:.55;}',
@@ -579,7 +572,8 @@
     '#' + DLG_ID + ' .va-item button{padding:0 8px;min-height:32px;font-size:12px;}',
     '#' + DLG_ID + ' .va-item button[data-danger]{color:#c0392b;border-color:rgba(192,57,43,.5);}',
     '#' + DLG_ID + ' .va-empty{color:var(--text-2);font-size:13px;padding:14px 0;text-align:center;}',
-    '#' + DLG_ID + ' .va-form{border:1px dashed var(--line);border-radius:var(--radius-sm);padding:10px;margin:10px 0 0;}',
+    '#' + DLG_ID + ' .va-form{border:1px dashed var(--line);border-radius:var(--radius-sm);padding:10px;margin:10px 0 0;',
+    '  max-height:54vh;min-height:0;overflow:auto;flex:0 1 auto;}',
     '#' + DLG_ID + ' .va-form.is-hidden,#' + DLG_ID + ' .va-bulk.is-hidden{display:none;}',
     '#' + DLG_ID + ' .va-field{margin-bottom:8px;}',
     '#' + DLG_ID + ' .va-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px;}',
@@ -587,7 +581,8 @@
     '#' + DLG_ID + ' .va-kinds button.is-active{background:var(--primary);border-color:var(--primary);color:#fff;}',
     '#' + DLG_ID + ' .va-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}',
     '#' + DLG_ID + ' .va-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}',
-    '#' + DLG_ID + ' .va-bulk{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-top:10px;}',
+    '#' + DLG_ID + ' .va-bulk{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-top:10px;',
+    '  max-height:48vh;min-height:0;overflow:auto;flex:0 1 auto;}',
     '#' + DLG_ID + ' .va-try-out{margin:6px 0 0;white-space:pre-wrap;word-break:break-all;font-size:13px;',
     '  color:var(--text);background:var(--bg);border-radius:var(--radius-sm);padding:8px;min-height:1.6em;}',
     '#' + BTN_ID + '{margin-left:4px;}',
@@ -696,6 +691,19 @@
     }).join('');
   }
 
+  /* 任一子面板（表单/批量/试跑）展开时给弹层挂 is-editing，让列表让出高度 */
+  function syncEditClass() {
+    var dlg = $(DLG_ID);
+    if (!dlg) return;
+    var ids = [DLG_ID + '-form', DLG_ID + '-bulk', DLG_ID + '-try'];
+    var open = false;
+    for (var i = 0; i < ids.length; i++) {
+      var panel = $(ids[i]);
+      if (panel && !panel.classList.contains('is-hidden')) { open = true; break; }
+    }
+    dlg.classList.toggle('is-editing', open);
+  }
+
   function openForm(entry) {
     var form = $(DLG_ID + '-form');
     if (!form) return;
@@ -709,6 +717,7 @@
     $(DLG_ID + '-form-title').textContent = entry ? '编辑条目' : '新建条目';
     syncKindButtons();
     form.classList.remove('is-hidden');
+    syncEditClass();
     var box = $(DLG_ID + '-correct');
     if (box) {
       try { box.focus(); } catch (err) { /* 忽略 */ }
@@ -719,6 +728,7 @@
     var form = $(DLG_ID + '-form');
     if (form) form.classList.add('is-hidden');
     state.editingId = '';
+    syncEditClass();
   }
 
   function syncKindButtons() {
@@ -826,27 +836,7 @@
     }, 3000);
   }
 
-  /* ---------------- 导入 / 导出 / 试跑 ---------------- */
-
-  function importNames() {
-    var box = $('voice-names');
-    if (!box) {
-      tip('找不到「常用人名」输入框');
-      return;
-    }
-    var names = parseNames(box.value);
-    if (!names.length) {
-      tip('「常用人名」是空的，先在那里填名字');
-      return;
-    }
-    var items = names.map(function (name) {
-      return { correct: name, wrong: [], kind: 'person', source: 'import' };
-    });
-    var res = mergeEntries(items);
-    renderList();
-    syncCount();
-    tip('从常用人名加入 ' + res.added + ' 条' + (res.skipped ? '，已存在 ' + res.skipped + ' 条' : ''));
-  }
+  /* ---------------- 导出 / 试跑 ---------------- */
 
   function runBulk() {
     var box = $(DLG_ID + '-bulk-text');
@@ -860,6 +850,7 @@
     box.value = '';
     var panel = $(DLG_ID + '-bulk');
     if (panel) panel.classList.add('is-hidden');
+    syncEditClass();
     renderList();
     syncCount();
     tip('批量加入 ' + res.added + ' 条' + (res.skipped ? '，已存在 ' + res.skipped + ' 条' : ''));
@@ -875,6 +866,7 @@
     var panel = $(DLG_ID + '-bulk');
     var box = $(DLG_ID + '-bulk-text');
     if (panel) panel.classList.remove('is-hidden');
+    syncEditClass();
     if (box) {
       box.value = text;
       try { box.focus(); box.select(); } catch (err) { /* 忽略 */ }
@@ -1136,6 +1128,9 @@
     var dlg = doc.createElement('dialog');
     dlg.id = DLG_ID;
     dlg.setAttribute('aria-labelledby', DLG_ID + '-title');
+    /* 键盘弹出时不让 kb-stable 锁尺寸：本弹层限高随视口走（flex + 内部滚动），
+       锁「弹出前高度」的旧值会把底部按钮顶出视口（真机实测过） */
+    dlg.setAttribute('data-kb-skip', '');
     dlg.innerHTML = [
       '<header>',
       '  <h2 id="' + DLG_ID + '-title">常用词与纠错档案</h2>',
@@ -1177,7 +1172,6 @@
       '</div>',
       '<div class="va-actions">',
       '  <button type="button" data-primary data-new>新建一条</button>',
-      '  <button type="button" data-import>从常用人名导入</button>',
       '  <button type="button" data-bulk>批量粘贴</button>',
       '  <button type="button" data-try>试跑一句</button>',
       '  <button type="button" data-export>导出文本</button>',
@@ -1231,18 +1225,20 @@
       else if (btn.hasAttribute('data-new')) openForm(null);
       else if (btn.hasAttribute('data-save')) submitForm();
       else if (btn.hasAttribute('data-cancel')) closeForm();
-      else if (btn.hasAttribute('data-import')) importNames();
       else if (btn.hasAttribute('data-bulk')) {
         var panel = $(DLG_ID + '-bulk');
         if (panel) panel.classList.toggle('is-hidden');
+        syncEditClass();
       } else if (btn.hasAttribute('data-bulk-run')) runBulk();
       else if (btn.hasAttribute('data-bulk-close')) {
         var closePanel = $(DLG_ID + '-bulk');
         if (closePanel) closePanel.classList.add('is-hidden');
+        syncEditClass();
       } else if (btn.hasAttribute('data-export')) runExport();
       else if (btn.hasAttribute('data-try')) {
         var tryPanel = $(DLG_ID + '-try');
         if (tryPanel) tryPanel.classList.toggle('is-hidden');
+        syncEditClass();
       } else if (btn.hasAttribute('data-try-run')) runTry();
     });
 
@@ -1263,34 +1259,9 @@
     }
   }
 
-  /* 第一次打开：把「常用人名」里已有的名字搬一份进档案，只搬一次 */
-  function seedOnce() {
-    var data = load();
-    if (data.seeded) return;
-    data.seeded = true;
-    var box = $('voice-names');
-    var names = box ? parseNames(box.value) : [];
-    if (names.length) {
-      var exists = Object.create(null);
-      var i;
-      for (i = 0; i < data.entries.length; i++) exists[data.entries[i].correct] = true;
-      for (i = 0; i < names.length && data.entries.length < MAX_ENTRIES; i++) {
-        if (exists[names[i]]) continue;
-        data.entries.push({
-          id: newId(), kind: 'person', correct: names[i], wrong: [], scene: '', accent: '', note: '',
-          enabled: true, hits: 0, lastHitAt: 0, source: 'import',
-          createdAt: Date.now(), updatedAt: Date.now()
-        });
-        exists[names[i]] = true;
-      }
-    }
-    persist(data);
-  }
-
   function openDialog() {
     var dlg = $(DLG_ID);
     if (!dlg) return;
-    seedOnce();
     closeForm();
     var auto = $(DLG_ID + '-auto');
     if (auto) auto.checked = load().settings.auto !== false;
@@ -1298,6 +1269,7 @@
     if (bulk) bulk.classList.add('is-hidden');
     var tryPanel = $(DLG_ID + '-try');
     if (tryPanel) tryPanel.classList.add('is-hidden');
+    syncEditClass();
     renderList();
     syncCount();
     if (typeof dlg.showModal === 'function') dlg.showModal();
@@ -1376,7 +1348,6 @@
     correct: correct,
     diffPair: diffPair,
     splitBulk: splitBulk,
-    parseNames: parseNames,
     guessKind: guessKind,
     loosen: looseSyllable,
     learn: learn,
